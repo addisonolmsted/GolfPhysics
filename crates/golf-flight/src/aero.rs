@@ -13,23 +13,30 @@ pub struct AeroParams {
     /// drag rise per unit spin factor squared
     #[serde(default)]
     pub cd_s2: f64,
-    /// drag change with air speed: + cd_v (V_REF / |u| - 1), so drag falls as the ball goes faster. Empirical: written
-    /// first as a Reynolds-number term, which made altitude cancel half its own gain (Denver +2.3 % against the ~5 %
-    /// TrackMan measures), so it depends on speed alone (docs/models/flight.md)
+    /// drag change with air speed: + cd_v min(0, cd_v_ref / |u| - 1), so drag falls as the ball goes faster than
+    /// `cd_v_ref` and is flat below it. Empirical. A Reynolds-number form cancelled half the altitude gain (M2), and
+    /// a two-sided speed form raised drag on slow balls enough that a tailwind shortened a 70 mph drive (M2b).
     #[serde(default)]
     pub cd_v: f64,
+    /// the air speed above which the speed term lowers drag, m/s
+    #[serde(default = "default_v_ref")]
+    pub cd_v_ref: f64,
     /// lift at saturation: Cl = cl_max S^p / (cl_s_half^p + S^p)
     pub cl_max: f64,
     /// the spin factor at half the saturated lift
     pub cl_s_half: f64,
     /// the lift curve's exponent: Cl grows as S^p at low spin
     pub cl_p: f64,
-    /// spin decay: dω/dt = -spin_decay_per_m |u| ω, so the rate per second is this times the air speed
+    /// spin decay: dω/dt = -(spin_decay_per_s + spin_decay_per_m |u|) ω
     pub spin_decay_per_m: f64,
+    /// the part of the spin decay that doesn't depend on speed (M2b: keeps spin falling late in the flight)
+    #[serde(default)]
+    pub spin_decay_per_s: f64,
 }
 
-/// the air speed the speed term of the drag is centred on
-pub const V_REF_MPS: f64 = 36.5;
+fn default_v_ref() -> f64 {
+    36.5
+}
 
 #[derive(Deserialize)]
 struct AeroFile {
@@ -70,7 +77,7 @@ impl Prepared {
     #[inline]
     pub fn coefficients(&self, s: f64, speed_mps: f64) -> (f64, f64) {
         let p = &self.p;
-        let cd = p.cd0 + (p.cd_s + p.cd_s2 * s) * s + p.cd_v * (V_REF_MPS / speed_mps.max(5.0) - 1.0);
+        let cd = p.cd0 + (p.cd_s + p.cd_s2 * s) * s + p.cd_v * (p.cd_v_ref / speed_mps.max(5.0) - 1.0).min(0.0);
         // S^p as exp(p ln S): the same value as libm's pow to rounding, at a third of the cost
         let sp = if s > 0.0 { math::exp(p.cl_p * math::ln(s)) } else { 0.0 };
         (cd, p.cl_max * sp / (self.s_half_p + sp))

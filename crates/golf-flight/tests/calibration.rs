@@ -42,7 +42,9 @@ fn sniff_rows_land_in_their_bands() {
         let f = fly(r["ball_mph"].as_f64().unwrap(), r["launch_deg"].as_f64().unwrap(), r["spin_rpm"].as_f64().unwrap());
         let c = carry_yd(&f);
         let b = &r["carry_band_yd"];
-        assert!(c >= b[0].as_f64().unwrap() && c <= b[1].as_f64().unwrap(), "{} ({} {}): carry {c:.1} not in {b}", r["id"], r["group"], r["club"]);
+        // a recorded, owner-accepted miss widens the band by that much (reference file, D37); the band is unchanged
+        let slack = r["accepted_miss_yd"].as_f64().unwrap_or(0.0);
+        assert!(c >= b[0].as_f64().unwrap() - slack && c <= b[1].as_f64().unwrap() + slack, "{} ({} {}): carry {c:.1} not in {b}", r["id"], r["group"], r["club"]);
     }
 }
 
@@ -102,4 +104,53 @@ fn deterministic_to_the_bit() {
     let b = fly(150.0, 12.0, 3000.0);
     assert_eq!(a.last, b.last);
     assert_eq!(a.samples, b.samples);
+}
+
+fn every_launch() -> Vec<(String, f64, f64, f64)> {
+    let r = reference();
+    let mut v = Vec::new();
+    for key in ["fit_rows", "sniff_rows"] {
+        for x in r[key].as_array().unwrap() {
+            v.push((x["id"].as_str().unwrap().to_string(), x["ball_mph"].as_f64().unwrap(), x["launch_deg"].as_f64().unwrap(), x["spin_rpm"].as_f64().unwrap()));
+        }
+    }
+    v
+}
+
+#[test]
+fn a_tailwind_never_shortens_a_full_shot() {
+    for (id, mph, la, sp) in every_launch() {
+        let calm = carry_yd(&fly(mph, la, sp));
+        for w in [10.0, 20.0] {
+            let down = carry_yd(&fly_with(Air::trackman_normal(), Wind::new(w * 0.44704, 0.0), mph, la, sp, 0.0));
+            assert!(down >= calm - 0.1, "{id}: {w} mph downwind carries {down:.1}, calm {calm:.1}");
+        }
+    }
+}
+
+#[test]
+fn tour_driver_hang_time_is_close_to_shotlink() {
+    // ShotLink: 6.1-6.3 s in real conditions; the M2b fit sits at ~6.8 s (accepted, D37): keep it under 7.0
+    let t = fly(167.0, 10.9, 2686.0).time_s();
+    assert!((6.0..=7.0).contains(&t), "tour driver hang {t:.2} s");
+}
+
+#[test]
+fn published_7_iron_wind_pair() {
+    // Golf Digest: a tour 7 iron (166 yd) loses 17 into 10 mph and gains 13 down
+    let calm = carry_yd(&fly(120.0, 16.3, 7097.0));
+    let into = carry_yd(&fly_with(Air::trackman_normal(), Wind::new(4.4704, std::f64::consts::PI), 120.0, 16.3, 7097.0, 0.0)) - calm;
+    let down = carry_yd(&fly_with(Air::trackman_normal(), Wind::new(4.4704, 0.0), 120.0, 16.3, 7097.0, 0.0)) - calm;
+    assert!((into + 17.0).abs() <= 4.0 && (down - 13.0).abs() <= 4.0, "into {into:+.1}, down {down:+.1}");
+}
+
+#[test]
+fn driver_curve_per_degree_matches_trackman() {
+    // TrackMan: ~0.7 % of carry per degree of spin axis. Drivers must match; irons curve more in this model and are
+    // matched through the face/path -> spin axis step in M4 (docs/models/flight.md)
+    for (mph, la, sp) in [(167.0, 10.9, 2686.0), (132.6, 12.6, 3275.0), (140.0, 13.2, 2611.0)] {
+        let f = fly_with(Air::trackman_normal(), Wind::CALM, mph, la, sp, 5.0);
+        let pct = 100.0 * f.lateral_m() / 5.0 / f.carry_m();
+        assert!((0.55..=0.9).contains(&pct), "{mph} mph driver: {pct:.2} % of carry per degree");
+    }
 }

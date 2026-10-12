@@ -140,11 +140,11 @@ pub fn run() -> Result<(), String> {
     for row in &r.sniff_rows {
         let f = calib::fly(&a, row.ball_mph, row.launch_deg, row.spin_rpm, 0.0, Wind::CALM);
         let c = f.carry_m() / M_PER_YD;
-        sniff_pass += (c >= row.carry_band_yd[0] && c <= row.carry_band_yd[1]) as u32;
+        sniff_pass += (c >= row.carry_band_yd[0] - row.accepted_miss_yd && c <= row.carry_band_yd[1] + row.accepted_miss_yd) as u32;
         let v = json!({
             "id": row.id, "kind": "sniff", "club": row.club, "club_mph": row.club_mph, "ball_mph": row.ball_mph,
             "launch_deg": row.launch_deg, "spin_rpm": row.spin_rpm,
-            "ref": {"band": row.carry_band_yd}, "basis": row.basis, "model": summary(&f), "group": row.group
+            "ref": {"band": row.carry_band_yd, "accepted_miss": row.accepted_miss_yd}, "basis": row.basis, "model": summary(&f), "group": row.group
         });
         let gname = "Handicap sniff tests".to_string();
         match groups.iter_mut().find(|g| g.0 == gname) {

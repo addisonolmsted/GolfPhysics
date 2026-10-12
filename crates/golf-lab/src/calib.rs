@@ -44,6 +44,9 @@ pub struct SniffRow {
     pub launch_deg: f64,
     pub spin_rpm: f64,
     pub carry_band_yd: [f64; 2],
+    /// an owner-accepted miss, in yards (D37); the band is unchanged
+    #[serde(default)]
+    pub accepted_miss_yd: f64,
     pub basis: String,
 }
 

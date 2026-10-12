@@ -125,7 +125,7 @@ impl<'a> Model<'a> {
         a -= u * (k * cd * speed);
         let lift_dir = w_perp.cross(u).norm();
         a += lift_dir * (k * cl * speed * speed);
-        (a, w * (-self.aero.spin_decay_per_m * speed))
+        (a, w * (-(self.aero.spin_decay_per_s + self.aero.spin_decay_per_m * speed)))
     }
 
     /// one classic RK4 step; `z_agl` is the height above the ground at the start (the ground height is taken as

@@ -2,382 +2,428 @@
   "air": "TrackMan normal: sea level, 23.9 C, 75 % humidity",
   "command": "cargo run --release -p golf-lab -- fit-aero",
   "fitted": "2026-10-12",
-  "model": "Cd = cd0 + cd_s * S + cd_s2 * S^2 + cd_v * (36.5 / |u| - 1); Cl = cl_max * S^p / (cl_s_half^p + S^p); dω/dt = -spin_decay_per_m * |u| * ω  (S = r |ω⊥| / |u|, u = ball velocity relative to the air)",
-  "objective": "sum over fit rows of ((carry err) / 3 %)^2 + ((apex err) / 10 %)^2 + ((land err) / 3 deg)^2, unverified fields at half weight, plus a weak prior on spin decay; final value below",
-  "objective_value": 23.36,
+  "model": "Cd = cd0 + cd_s S + cd_s2 S^2 + cd_v min(0, cd_v_ref / |u| - 1); Cl = cl_max S^p / (cl_s_half^p + S^p); dω/dt = -(spin_decay_per_s + spin_decay_per_m |u|) ω  (S = r |ω⊥| / |u|, u = ball velocity relative to the air)",
+  "objective": "fit rows: ((carry err) / 3 %)^2 + ((apex err) / 10 %)^2 + ((land err) / 3 deg)^2, unverified fields at half weight; driver hang time / 0.25 s; curve per degree / 25 %; wind deltas / 3 yd; 100 x (yards a tailwind shortens a shot)^2; a weak prior on spin decay",
+  "objective_value": 40.88,
   "params": {
-    "cd0": 0.23290766933372187,
-    "cd_s": 0.4617172093343517,
-    "cd_s2": -0.3452152731315161,
-    "cd_v": 0.13089757530017826,
-    "cl_max": 0.47631864528376777,
-    "cl_p": 1.197651980717169,
-    "cl_s_half": 0.1696626128028743,
-    "spin_decay_per_m": 0.0004959579605398731
+    "cd0": 0.2560120565041869,
+    "cd_s": 0.43288482382045934,
+    "cd_s2": -0.2597392038566846,
+    "cd_v": 0.19622370168449815,
+    "cd_v_ref": 38.91840174262075,
+    "cl_max": 0.44008637992237154,
+    "cl_p": 1.4717381982220024,
+    "cl_s_half": 0.14305363228502205,
+    "spin_decay_per_m": 6.607140931791776e-8,
+    "spin_decay_per_s": 0.03376870222255366
   },
-  "reference": "data/calibration/reference.v1.json (fit_rows)",
+  "reference": "data/calibration/reference.v1.json (fit_rows, extra_targets, and every sniff row for the tailwind rule)",
   "residuals": [
     {
-      "apex_yd": [
-        33.4,
-        32.0
-      ],
-      "carry_yd": [
-        269.8,
-        275.0
-      ],
-      "id": "pga-dr",
-      "land_deg": [
-        41.0,
-        38.0
-      ]
+      "cost": 3.34,
+      "what": "pga-dr: carry 266.6/275 apex 32.4/Some(32.0) land 39.6/Some(38.0) hang 6.79/6.2"
     },
     {
-      "apex_yd": [
-        32.6,
-        30.0
-      ],
-      "carry_yd": [
-        249.0,
-        243.0
-      ],
-      "id": "pga-3w",
-      "land_deg": [
-        43.2,
-        43.0
-      ]
+      "cost": 1.13,
+      "what": "pga-3w: carry 248.3/243 apex 33.2/Some(30.0) land 42.2/Some(43.0)"
     },
     {
-      "apex_yd": [
-        33.8,
-        31.0
-      ],
-      "carry_yd": [
-        234.6,
-        230.0
-      ],
-      "id": "pga-5w",
-      "land_deg": [
-        45.4,
-        47.0
-      ]
+      "cost": 1.55,
+      "what": "pga-5w: carry 234.5/230 apex 34.8/Some(31.0) land 44.3/Some(47.0)"
     },
     {
-      "apex_yd": [
-        32.5,
-        29.0
-      ],
-      "carry_yd": [
-        223.1,
-        225.0
-      ],
-      "id": "pga-hy",
-      "land_deg": [
-        45.0,
-        47.0
-      ]
+      "cost": 1.71,
+      "what": "pga-hy: carry 222.9/225 apex 33.3/Some(29.0) land 43.9/Some(47.0)"
     },
     {
-      "apex_yd": [
-        31.2,
-        27.0
-      ],
-      "carry_yd": [
-        214.7,
-        212.0
-      ],
-      "id": "pga-3i",
-      "land_deg": [
-        44.7,
-        46.0
-      ]
+      "cost": 2.15,
+      "what": "pga-3i: carry 214.4/212 apex 32.0/Some(27.0) land 43.6/Some(46.0)"
     },
     {
-      "apex_yd": [
-        30.1,
-        28.0
-      ],
-      "carry_yd": [
-        204.6,
-        203.0
-      ],
-      "id": "pga-4i",
-      "land_deg": [
-        44.6,
-        48.0
-      ]
+      "cost": 1.69,
+      "what": "pga-4i: carry 204.2/203 apex 30.8/Some(28.0) land 43.4/Some(48.0)"
     },
     {
-      "apex_yd": [
-        30.6,
-        31.0
-      ],
-      "carry_yd": [
-        193.5,
-        194.0
-      ],
-      "id": "pga-5i",
-      "land_deg": [
-        45.8,
-        49.0
-      ]
+      "cost": 1.18,
+      "what": "pga-5i: carry 193.1/194 apex 31.1/Some(31.0) land 44.4/Some(49.0)"
     },
     {
-      "apex_yd": [
-        32.7,
-        30.0
-      ],
-      "carry_yd": [
-        181.6,
-        183.0
-      ],
-      "id": "pga-6i",
-      "land_deg": [
-        48.0,
-        50.0
-      ]
+      "cost": 1.25,
+      "what": "pga-6i: carry 181.1/183 apex 32.8/Some(30.0) land 46.5/Some(50.0)"
     },
     {
-      "apex_yd": [
-        32.6,
-        32.0
-      ],
-      "carry_yd": [
-        167.1,
-        172.0
-      ],
-      "id": "pga-7i",
-      "land_deg": [
-        48.8,
-        50.0
-      ]
+      "cost": 1.07,
+      "what": "pga-7i: carry 166.1/172 apex 32.3/Some(32.0) land 47.2/Some(50.0)"
     },
     {
-      "apex_yd": [
-        32.6,
-        31.0
-      ],
-      "carry_yd": [
-        157.1,
-        160.0
-      ],
-      "id": "pga-8i",
-      "land_deg": [
-        49.1,
-        50.0
-      ]
+      "cost": 0.75,
+      "what": "pga-8i: carry 155.5/160 apex 31.9/Some(31.0) land 47.8/Some(50.0)"
     },
     {
-      "apex_yd": [
-        32.0,
-        30.0
-      ],
-      "carry_yd": [
-        146.5,
-        148.0
-      ],
-      "id": "pga-9i",
-      "land_deg": [
-        49.2,
-        51.0
-      ]
+      "cost": 0.85,
+      "what": "pga-9i: carry 144.4/148 apex 31.1/Some(30.0) land 48.1/Some(51.0)"
     },
     {
-      "apex_yd": [
-        32.4,
-        29.0
-      ],
-      "carry_yd": [
-        134.3,
-        136.0
-      ],
-      "id": "pga-pw",
-      "land_deg": [
-        50.0,
-        52.0
-      ]
+      "cost": 1.25,
+      "what": "pga-pw: carry 131.9/136 apex 31.3/Some(29.0) land 49.2/Some(52.0)"
     },
     {
-      "apex_yd": [
-        25.8,
-        25.0
-      ],
-      "carry_yd": [
-        215.7,
-        218.0
-      ],
-      "id": "lpga-dr",
-      "land_deg": [
-        37.4,
-        37.0
-      ]
+      "cost": 0.88,
+      "what": "lpga-dr: carry 212.0/218 apex 25.2/Some(25.0) land 36.3/Some(37.0)"
     },
     {
-      "apex_yd": [
-        18.6,
-        23.0
-      ],
-      "carry_yd": [
-        192.8,
-        195.0
-      ],
-      "id": "lpga-3w",
-      "land_deg": [
-        31.4,
-        39.0
-      ]
+      "cost": 6.85,
+      "what": "lpga-3w: carry 189.2/195 apex 18.3/Some(23.0) land 30.8/Some(39.0)"
     },
     {
-      "apex_yd": [
-        26.0,
-        26.0
-      ],
-      "carry_yd": [
-        188.4,
-        185.0
-      ],
-      "id": "lpga-5w",
-      "land_deg": [
-        41.8,
-        43.0
-      ]
+      "cost": 0.57,
+      "what": "lpga-5w: carry 187.9/185 apex 26.4/Some(26.0) land 40.8/Some(43.0)"
     },
     {
-      "apex_yd": [
-        24.7,
-        25.0
-      ],
-      "carry_yd": [
-        178.1,
-        174.0
-      ],
-      "id": "lpga-7w",
-      "land_deg": [
-        41.5,
-        46.0
-      ]
+      "cost": 2.29,
+      "what": "lpga-7w: carry 177.8/174 apex 25.1/Some(25.0) land 40.4/Some(46.0)"
     },
     {
-      "apex_yd": [
-        23.7,
-        24.0
-      ],
-      "carry_yd": [
-        164.6,
-        169.0
-      ],
-      "id": "lpga-4i",
-      "land_deg": [
-        41.6,
-        43.0
-      ]
+      "cost": 1.18,
+      "what": "lpga-4i: carry 164.6/169 apex 24.0/Some(24.0) land 40.3/Some(43.0)"
     },
     {
-      "apex_yd": [
-        22.7,
-        23.0
-      ],
-      "carry_yd": [
-        156.2,
-        161.0
-      ],
-      "id": "lpga-5i",
-      "land_deg": [
-        41.4,
-        45.0
-      ]
+      "cost": 2.34,
+      "what": "lpga-5i: carry 156.2/161 apex 22.9/Some(23.0) land 40.1/Some(45.0)"
     },
     {
-      "apex_yd": [
-        25.5,
-        25.0
-      ],
-      "carry_yd": [
-        149.6,
-        152.0
-      ],
-      "id": "lpga-6i",
-      "land_deg": [
-        44.9,
-        46.0
-      ]
+      "cost": 0.7,
+      "what": "lpga-6i: carry 149.7/152 apex 25.5/Some(25.0) land 43.3/Some(46.0)"
     },
     {
-      "apex_yd": [
-        25.6,
-        26.0
-      ],
-      "carry_yd": [
-        139.3,
-        141.0
-      ],
-      "id": "lpga-7i",
-      "land_deg": [
-        45.9,
-        47.0
-      ]
+      "cost": 0.59,
+      "what": "lpga-7i: carry 139.3/141 apex 25.4/Some(26.0) land 44.3/Some(47.0)"
     },
     {
-      "apex_yd": [
-        25.9,
-        25.0
-      ],
-      "carry_yd": [
-        131.5,
-        130.0
-      ],
-      "id": "lpga-8i",
-      "land_deg": [
-        46.7,
-        47.0
-      ]
+      "cost": 0.28,
+      "what": "lpga-8i: carry 131.2/130 apex 25.4/Some(25.0) land 45.2/Some(47.0)"
     },
     {
-      "apex_yd": [
-        25.1,
-        26.0
-      ],
-      "carry_yd": [
-        118.8,
-        119.0
-      ],
-      "id": "lpga-9i",
-      "land_deg": [
-        47.5,
-        47.0
-      ]
+      "cost": 0.16,
+      "what": "lpga-9i: carry 119.2/119 apex 24.8/Some(26.0) land 46.0/Some(47.0)"
     },
     {
-      "apex_yd": [
-        22.7,
-        23.0
-      ],
-      "carry_yd": [
-        106.8,
-        107.0
-      ],
-      "id": "lpga-pw",
-      "land_deg": [
-        46.5,
-        48.0
-      ]
+      "cost": 0.41,
+      "what": "lpga-pw: carry 107.0/107 apex 22.4/Some(23.0) land 45.4/Some(48.0)"
     },
     {
-      "apex_yd": [
-        24.9,
-        null
-      ],
-      "carry_yd": [
-        200.3,
-        204.0
-      ],
-      "id": "ama-dr",
-      "land_deg": [
-        38.6,
-        34.8
-      ]
+      "cost": 1.69,
+      "what": "ama-dr: carry 198.6/204 apex 24.9/None land 37.7/Some(34.8)"
+    },
+    {
+      "cost": 0.07,
+      "what": "pga-dr curve: 0.75 % of carry per deg (target 0.7)"
+    },
+    {
+      "cost": 2.7,
+      "what": "pga-7i curve: 0.99 % of carry per deg (target 0.7)"
+    },
+    {
+      "cost": 1.16,
+      "what": "pga-pw curve: 0.89 % of carry per deg (target 0.7)"
+    },
+    {
+      "cost": 0.1,
+      "what": "lpga-dr curve: 0.64 % of carry per deg (target 0.7)"
+    },
+    {
+      "cost": 0.51,
+      "what": "lpga-7i curve: 0.83 % of carry per deg (target 0.7)"
+    },
+    {
+      "cost": 0.07,
+      "what": "ama-dr curve: 0.75 % of carry per deg (target 0.7)"
+    },
+    {
+      "cost": 0.37,
+      "what": "pga-7i 10 mph: into -18.6 (target -17), down +12.1 (target 13)"
+    },
+    {
+      "cost": 0.0,
+      "what": "pga-dr 10 mph down: +12.4 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "pga-3w 10 mph down: +12.4 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "pga-5w 10 mph down: +13.2 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "pga-hy 10 mph down: +12.1 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "pga-3i 10 mph down: +11.3 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "pga-4i 10 mph down: +10.5 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "pga-5i 10 mph down: +10.8 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "pga-6i 10 mph down: +12.1 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "pga-7i 10 mph down: +12.1 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "pga-8i 10 mph down: +12.3 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "pga-9i 10 mph down: +12.0 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "pga-pw 10 mph down: +12.3 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "lpga-dr 10 mph down: +7.5 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "lpga-3w 10 mph down: +3.4 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "lpga-5w 10 mph down: +7.6 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "lpga-7w 10 mph down: +6.8 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "lpga-4i 10 mph down: +6.2 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "lpga-5i 10 mph down: +5.7 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "lpga-6i 10 mph down: +7.6 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "lpga-7i 10 mph down: +8.0 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "lpga-8i 10 mph down: +8.4 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "lpga-9i 10 mph down: +8.1 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "lpga-pw 10 mph down: +7.0 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "ama-dr 10 mph down: +6.8 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "hcp0-dr 10 mph down: +12.5 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "hcp5-dr 10 mph down: +8.9 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "hcp10-dr 10 mph down: +7.2 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "hcp20-dr 10 mph down: +6.2 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "slow-dr 10 mph down: +2.7 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "casual-dr 10 mph down: +0.8 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "ama-7i 10 mph down: +7.3 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "hcp0-7i 10 mph down: +10.8 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "hcp20-7i 10 mph down: +5.9 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "slow-7i 10 mph down: +3.0 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "ama-pw 10 mph down: +8.7 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "pga-dr 20 mph down: +20.8 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "pga-3w 20 mph down: +19.2 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "pga-5w 20 mph down: +20.3 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "pga-hy 20 mph down: +18.3 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "pga-3i 20 mph down: +16.7 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "pga-4i 20 mph down: +15.3 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "pga-5i 20 mph down: +15.9 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "pga-6i 20 mph down: +18.6 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "pga-7i 20 mph down: +19.0 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "pga-8i 20 mph down: +19.6 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "pga-9i 20 mph down: +19.6 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "pga-pw 20 mph down: +20.7 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "lpga-dr 20 mph down: +12.0 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "lpga-3w 20 mph down: +4.1 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "lpga-5w 20 mph down: +10.4 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "lpga-7w 20 mph down: +9.0 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "lpga-4i 20 mph down: +8.3 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "lpga-5i 20 mph down: +7.4 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "lpga-6i 20 mph down: +11.1 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "lpga-7i 20 mph down: +12.0 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "lpga-8i 20 mph down: +13.0 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "lpga-9i 20 mph down: +12.9 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "lpga-pw 20 mph down: +11.2 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "ama-dr 20 mph down: +9.8 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "hcp0-dr 20 mph down: +20.6 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "hcp5-dr 20 mph down: +13.9 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "hcp10-dr 20 mph down: +10.6 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "hcp20-dr 20 mph down: +8.9 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "slow-dr 20 mph down: +3.0 yd"
+    },
+    {
+      "cost": 0.03,
+      "what": "casual-dr 20 mph down: -0.0 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "ama-7i 20 mph down: +10.6 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "hcp0-7i 20 mph down: +16.7 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "hcp20-7i 20 mph down: +8.3 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "slow-7i 20 mph down: +3.5 yd"
+    },
+    {
+      "cost": 0.0,
+      "what": "ama-pw 20 mph down: +14.1 yd"
     }
   ],
-  "status": "fitted",
+  "status": "fitted (M2b)",
   "version": 1
 }

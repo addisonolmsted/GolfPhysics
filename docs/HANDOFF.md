@@ -20,7 +20,11 @@ Updated 2026-10-11. Read this first when picking the work up in a new session.
   - Speed: 0.29 ms per flight.
   - Viewer: "Ball Flight Lab", https://claude.ai/artifact/L3wjwWT6N9PNYesM9PYf2g (rebuild with
     `golf-lab view`, republish the same file).
-  - Open: verify TrackMan's apex and landing-angle columns; drivers land 3-4° steep.
+  - Open: verify TrackMan's apex and landing-angle columns; drivers land 3-4° steep and hang ~10 % long (M2b).
+- **M2b done** (2026-10-12) on branch `m2b-flight-refit` (off `m2-flight`): time, curve and wind targets, the
+  tailwind fix, accepted deviations D37. The viewer is republished.
+- **Swing data (D38):** the team is building a small data-collection app and starting a 6-10 person sample, in
+  parallel. Its launch-monitor sessions should also record hang time, apex and landing angle (M2b's open items).
 - **Next: M3, ground.** Bounce, roll, putting, the patch cache, our material file.
 - **Carry into M3:** a patch cache for the height function (a 20k-step roll costs ~0.8 ms against a 0.5 ms
   budget), and our material override file.

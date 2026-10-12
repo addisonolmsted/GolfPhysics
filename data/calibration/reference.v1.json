@@ -32,6 +32,32 @@
   },
   "rule_of_thumb": {
    "what": "Carry per mph of club speed implied by the TrackMan rows above: driver 2.18 (amateur, 93.4 mph) to 2.43 (PGA, 113 mph) yd/mph; 7 iron 1.81 (amateur, 80 mph) to 1.91 (PGA, 90 mph). Used to set sniff bands for speeds the tables don't cover."
+  },
+  "gd_hang": {
+   "what": "Golf Digest / Australian Golf Digest: the PGA Tour average driver hang time has stayed between 6.1 and 6.3 s each year (ShotLink); individual leaders ~6.9 s.",
+   "urls": [
+    "https://www.golfdigest.com/story/golf-ball-hang-time-isnt-always-an-indic",
+    "https://www.australiangolfdigest.com.au/five-players-shortest-tee-shot-hang-time-drivers-use/"
+   ]
+  },
+  "tm_axis": {
+   "what": "TrackMan via Titleist: about 3.5 yd of curve per 100 yd of carry for every 5 deg of spin axis (0.7 % of carry per degree); TrackMan's own examples: 10 deg ~ 11 yd at 150 yd, ~ 15 yd at 200 yd.",
+   "urls": [
+    "https://www.titleist.com/learning-lab/performance/full-swing-aim-and-alignment-in-golf",
+    "https://www.trackman.com/blog/spin-axis"
+   ]
+  },
+  "gd_wind": {
+   "what": "Golf Digest wind analysis: a tour-level 7 iron carrying 166 yd in calm loses 17 yd into a 10 mph wind and gains 13 yd with it. The height of that wind isn't stated; we take it as the 10 m wind.",
+   "urls": [
+    "https://www.golfdigest.com/story/weve-taken-the-guesswork-out-of-playing-in-the-wind-with-this-powerful-new-tool"
+   ]
+  },
+  "rice_wind": {
+   "what": "Andrew Rice (with PING): into the wind about 1 yd per mph, downwind about half that; stronger headwinds cost more than linear.",
+   "urls": [
+    "https://www.andrewricegolf.com/andrew-rice-golf/tag/wind"
+   ]
   }
  },
  "fit_rows": [
@@ -438,7 +464,8 @@
     205,
     230
    ],
-   "basis": "club speed and spin: tm_combine; smash 1.42 (tm_ama); band: 2.15-2.42 yd/mph"
+   "basis": "club speed and spin: tm_combine; smash 1.42 (tm_ama); band: 2.15-2.42 yd/mph; ACCEPTED MISS 2026-10-12 (D37): the M2b fit carries this row 203.5 yd, 1.5 yd under the band, the price of the tailwind rule and the hang-time target. Accepted by the owner with the M2b fit; the band itself is unchanged.",
+   "accepted_miss_yd": 2.0
   },
   {
    "id": "hcp20-dr",
@@ -564,5 +591,73 @@
    ],
    "basis": "club speed and spin: TrackMan Optimizer default (72 mph, 8408 rpm); smash 1.25; Shot Scope 15 hcp PW 121 (total-leaning)"
   }
- ]
+ ],
+ "extra_targets": {
+  "note": "Added 2026-10-12 (M2b) from the owner's review of time, curve and wind. Fit targets alongside the fit rows.",
+  "hang": [
+   {
+    "row": "pga-dr",
+    "hang_s": 6.2,
+    "tol_s": 0.4,
+    "source": "gd_hang",
+    "note": "+-0.4 s: the 6.1-6.3 s figure is a real-conditions ShotLink average over all tour drives (wind, temperature, carries around 265-280 yd), not a normalised TrackMan number"
+   }
+  ],
+  "curve": [
+   {
+    "row": "pga-dr",
+    "pct_of_carry_per_deg": 0.7,
+    "tol_frac": 0.25,
+    "source": "tm_axis"
+   },
+   {
+    "row": "pga-7i",
+    "pct_of_carry_per_deg": 0.7,
+    "tol_frac": 0.25,
+    "source": "tm_axis"
+   },
+   {
+    "row": "pga-pw",
+    "pct_of_carry_per_deg": 0.7,
+    "tol_frac": 0.25,
+    "source": "tm_axis"
+   },
+   {
+    "row": "lpga-dr",
+    "pct_of_carry_per_deg": 0.7,
+    "tol_frac": 0.25,
+    "source": "tm_axis"
+   },
+   {
+    "row": "lpga-7i",
+    "pct_of_carry_per_deg": 0.7,
+    "tol_frac": 0.25,
+    "source": "tm_axis"
+   },
+   {
+    "row": "ama-dr",
+    "pct_of_carry_per_deg": 0.7,
+    "tol_frac": 0.25,
+    "source": "tm_axis"
+   }
+  ],
+  "wind": [
+   {
+    "row": "pga-7i",
+    "mph": 10,
+    "into_yd": -17,
+    "down_yd": 13,
+    "tol_yd": 3,
+    "source": "gd_wind"
+   }
+  ],
+  "tailwind_never_shortens": {
+   "mph": [
+    10,
+    20
+   ],
+   "applies_to": "every fit row and every sniff row",
+   "source": "physics: a full shot downwind meets less air; the owner's review found a 70 mph driver losing carry downwind"
+  }
+ }
 }

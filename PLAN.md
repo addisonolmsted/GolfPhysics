@@ -68,13 +68,19 @@ decided).
   within the tolerances in [03](docs/03-success-indicators.md), across driver to wedge. Carry, apex and landing
   angle are fitted together, never carry alone (a lesson from GolfEngine).
 
-### M2b: Flight follow-up (`next`)
+### M2b: Flight follow-up (`done` 2026-10-12, branch `m2b-flight-refit`)
 
 From the owner's review: add driver hang time (6.1-6.3 s on tour), curve per degree of spin axis (~0.7 % of carry),
 the published 7-iron wind pair and "a tailwind never shortens a full shot" as fit targets and tests; bound the drag
-speed term below the fitted range; refit. Details: [flight.md](docs/models/flight.md#follow-up-review-2026-10-12-time-curve-and-wind).
+speed term below the fitted range; refit. Details: [flight.md](docs/models/flight.md#m2b-time-curve-and-wind-2026-10-12).
 
-### M3: Ground (`queued`)
+- **Result:**
+  - The tailwind rule now holds on every row, and 10 and 20 mph wind matches the published 7-iron pair.
+  - Driver hang time: 6.9 → 6.8 s, still ~10 % long.
+  - Driver curve matches TrackMan; iron curve goes to M4.
+  - Accepted deviations (D37): PGA driver carry -3.6 %, the 10 handicap sniff row 1.5 yd short.
+
+### M3: Ground (`next`)
 
 `golf-ground`: bounce (velocity-dependent restitution, turf tilt, grip/slip impulse with spin), the slide-to-roll
 switch, rolling resistance, slope gravity, putting, cup capture, water entry, plugging in sand.
@@ -94,7 +100,7 @@ club, a strike-point gear effect, and lie effects from the material and later fr
 - **Gate:** tour-average deliveries give tour-average launch conditions per club, and face/path combinations give
   the expected curve directions (fade, draw, push, pull, slice, hook).
 
-### M5: Swing input (`queued`, can start in parallel after M1)
+### M5: Swing input (`queued`; data collection started in parallel, D38)
 
 - Agree on the P1 payload with the SwingApp side. Give SwingApp a transport, a swing id, timestamps and the raw
   IMU window.

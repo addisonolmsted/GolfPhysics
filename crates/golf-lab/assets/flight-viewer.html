@@ -305,10 +305,11 @@ function renderGroup(group) {
     const m = r.model;
     let tds;
     if (sniff) {
-      const [a, b] = r.ref.band, ok = m.carry >= a && m.carry <= b;
+      const [a, b] = r.ref.band, slack = r.ref.accepted_miss || 0, ok = m.carry >= a - slack && m.carry <= b + slack;
+      const inBand = m.carry >= a && m.carry <= b;
       tds = [el("td", { text: r.group }), el("td", { text: r.club }), el("td", { text: fmt(r.club_mph, 0) }), el("td", { text: fmt(r.ball_mph, 0) }),
         el("td", { text: fmt(r.launch_deg) }), el("td", { text: fmt(r.spin_rpm, 0) }), el("td", { text: fmt(m.carry) }),
-        el("td", { text: `${a}–${b}` }), el("td", {}, [el("span", { class: `pill ${ok ? "good" : "bad"}`, text: ok ? "in band" : "out" })]),
+        el("td", { text: `${a}–${b}` }), el("td", {}, [el("span", { class: `pill ${inBand ? "good" : ok ? "warn" : "bad"}`, text: inBand ? "in band" : ok ? `accepted miss` : "out" })]),
         el("td", { text: fmt(m.apex) }), el("td", { text: fmt(m.land) }), el("td", { class: "basis", text: r.basis })];
     } else {
       const err = (m.carry - r.ref.carry) / r.ref.carry * 100;

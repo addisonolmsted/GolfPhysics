@@ -39,7 +39,7 @@ pub fn run() -> Result<(), String> {
     for s in &r.sniff_rows {
         let f = calib::fly(&a, s.ball_mph, s.launch_deg, s.spin_rpm, 0.0, Wind::CALM);
         let (c, h, l) = calib::measure(&f);
-        let ok = c >= s.carry_band_yd[0] && c <= s.carry_band_yd[1];
+        let ok = c >= s.carry_band_yd[0] - s.accepted_miss_yd && c <= s.carry_band_yd[1] + s.accepted_miss_yd;
         fails += !ok as u32;
         println!(
             "{:<10} {:<19} {:<7} {:>4.0} mph club -> carry {:>5.1} yd (band {:.0}-{:.0}) apex {:>4.1} land {:>4.1}  {}",
