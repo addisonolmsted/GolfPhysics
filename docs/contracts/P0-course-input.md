@@ -1,7 +1,7 @@
 # P0: Course input
 
-How `golf-course` reads a C0 bundle, and the queries it answers for the rest of the engine. Status: **draft, M0
-(2026-10-11)**, written against C0 v4.2 bundles (`c0_version: 4`, `bundle_format: 1`).
+How `golf-course` reads a C0 bundle, and the queries it answers for the rest of the engine. Status: **current, M1
+(2026-10-12)**: implemented in `golf-course`, written against C0 v4.2 bundles (`c0_version: 4`, `bundle_format: 1`).
 
 ## What we load
 
@@ -41,40 +41,66 @@ The tiers are blended by the generator at their seams (8 samples), so there is n
 `course_bundle::reader::Heights::z` at 100k random points (including seams) and fails above 1e-9 m. This is the
 only place we link the generator's crate.
 
-## In-memory layout (*proposed*, to measure in M1)
+## In-memory layout and cost (measured, M1, 2026-10-12)
 
-- Height tiles decoded to `f32` metres relative to a per-tile offset, or kept as `u16` plus offset and converted per
-  read. u16 is 4× smaller and the conversion is one multiply-add; pick by measurement.
-- Class tiles as `u8`.
-- A **lookup grid** (first guess: 4 m uniform cells) over the property, each cell listing: tree proxies (in-play
-  trees), deep-woods stands, penalty-area polygons, water bodies, and the OB ring edges that cross it. A segment
-  query walks the cells along the segment (a DDA), so a flight step only tests what is near it. Who builds it is
-  open (D16): the recommendation is that we build it once per course, from geometry the generator owns, and cache
-  it.
-- The whole `Course` is immutable after load and shared with `Arc`.
+- Height tiles stay **`u16` plus the tile's offset**, converted per node read: one integer add and one multiply,
+  exactly the generator's arithmetic, so the values are bit-identical to its reader's. Class tiles stay `u8`.
+- Tiles sit in a dense rectangle of slots per tier, so finding a node's tile is arithmetic, not a map lookup. When
+  all 16 nodes of a lookup belong to one tile (most of the time), they are read in one pass.
+- OB rings, penalty areas and water bodies are even-odd regions on an 8 m grid (4 m for water). Each cell knows
+  whether its centre is inside and which edges touch it, so a point test only checks the edges of its own cell.
+- The whole `Course` is immutable after load and can be shared with `Arc`.
 
-## The queries
+Measured on the six v1 fixtures (`golf-lab bench`, release build, M-series Mac):
+
+| Measure | Result | Budget ([02](../02-latency-budget.md)) |
+|---|---|---|
+| Load: read + blake3 + decode | 78-105 ms (decode is ~95 % of it: pure-Rust zstd and the planar unfilter) | < 300 ms |
+| Resident rasters | 13-17 MB per course | (none set; fine) |
+| `height` | ~21 ns | |
+| `surface_at` (height + gradient + second derivatives) | ~39 ns | |
+| `surface` (class) | ~4 ns | |
+| `in_bounds` + `penalty_area` | 8-44 ns (more rings, more edges per cell) | |
+| A worst-case 20k-step roll, one `surface_at` per step | ~0.8 ms | ground 0.5 ms: **M3 adds a patch cache** (a rolling ball stays in one 0.5 m cell for ~100 steps at 1 ms, so the 16 nodes can be reused) |
+
+**Conformance** (`golf-lab conform`, built with `--features conform`): our height function equals the generator's
+reference reader **bit for bit** (max difference 0) at 100k points per fixture, two thirds of them at tile seams,
+on all six fixtures. Note that the reference reader evaluates only the three C0 tiers, and `full_8m` already covers
+the whole 3 km world, so the surround tier answers only outside the world.
+
+## The queries (as built, M1)
 
 ```rust
 impl Course {
-    fn height(&self, x: f64, y: f64) -> Option<f64>;                  // None past the surround
-    fn height_grad(&self, x: f64, y: f64) -> Option<(f64, f64, f64)>; // z, dz/dx, dz/dy
+    fn open(dir: &Path) -> Result<Course, CourseError>;          // physics subset only, blake3-verified
+    fn height(&self, x: f64, y: f64) -> Option<f64>;             // THE height function; None past the surround
+    fn surface_at(&self, x: f64, y: f64) -> Option<Surface>;     // z, gradient, second derivatives, tier
     fn normal(&self, x: f64, y: f64) -> Option<Vec3>;
-    fn surface(&self, x: f64, y: f64) -> SurfaceClass;                // id from materials.json
-    fn material(&self, class: SurfaceClass) -> &Material;             // with our overrides applied
-    fn water_surface(&self, x: f64, y: f64) -> Option<(WaterId, f64)>;
-    fn in_bounds(&self, p: Vec2, ball_radius_m: f64) -> bool;         // whole-ball rule
-    fn penalty_area(&self, p: Vec2) -> Option<PenaltyAreaRef>;
-    fn trees_near_segment(&self, a: Vec3, b: Vec3, out: &mut Vec<ProxyRef>);
-    fn hole(&self, number: u8) -> &Hole;                              // tees, green, pin, aim targets
+    fn surface(&self, x: f64, y: f64) -> SurfaceClass;           // play raster, then cover_4m, then 0
+    fn material(&self, class: SurfaceClass) -> &Material;        // bundle defaults today; our overrides from M3
+    fn water_at(&self, p: Vec2) -> Option<WaterHit>;             // body (if any) + surface height
+    fn in_bounds(&self, centre: Vec2, ball_radius_m: f64) -> bool;               // whole-ball rule
+    fn penalty_area(&self, centre: Vec2, ball_radius_m: f64) -> Option<&PenaltyArea>; // in or touching
+    fn hole(&self, number: u8) -> Option<&Hole>;                 // tees (with sets), green, pin, line of play
+    // trees_near_segment: M6, once tree proxies exist (generic models, D20)
 }
 ```
+
+**What is wet** (decided by the data, 2026-10-12): the **class raster** decides; `water.json` only names the body
+and gives its surface height. On fixture 1920628, two dry islands in the lake are exported as `pond` bodies, so a
+ring test alone would call them water (found by `golf-lab/examples/water_audit.rs`; reported in
+[05](../05-generator-requests.md#gaps-we-found-in-the-fixtures)). Water outside every body takes the surround's 8 m
+water surface, else the ground height.
+
+**Rule facts.** OB: a ball is out only when the whole ball is out (outside an in-bounds ring, or inside an
+out-of-bounds ring such as the clubhouse, and more than one ball radius from the line). Penalty area: any part of
+the ball in or touching it. A creek can run on past the property while its penalty area stops at the line.
 
 ## Materials
 
 C0 ships per-class defaults (`restitution`, `rolling_resistance`, `sliding_friction`, `spin_retention`, `firmness`,
 `lie_penalty`, `stimp` on greens) and says the physics team owns the values. We keep ours in
-`data/materials/physics.v1.json`, keyed by C0 class id, and apply them over the bundle's on load (*proposed*, D18).
+`data/materials/physics.v1.json`, keyed by C0 class id, and apply them over the bundle's on load (D18; from M3).
 The model needs these per class (detail in [ground.md](../models/ground.md) and [impact.md](../models/impact.md)):
 
 | Parameter | Used by | Meaning |

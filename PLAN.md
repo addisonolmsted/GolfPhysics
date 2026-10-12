@@ -31,7 +31,7 @@ calendar time.
 - Architecture, conventions, latency budget, success indicators, contracts P0-P2 (drafts), model docs, assists
   design, decision log, generator answers (proposed), reference notes on GolfEngine and SwingApp.
 
-### M1: Course reader (`next`)
+### M1: Course reader (`done` 2026-10-12, branch `m1-course-reader`)
 
 `golf-course` reads the six v1 fixtures without the generator's crates, opening only the physics subset (D13,
 decided).
@@ -41,11 +41,16 @@ decided).
 - Queries: `height(x, y)`, `normal(x, y)`, `surface(x, y)`, `material(class)`, `in_bounds(p, r)`,
   `penalty_area(p)`, `water_at(p)`, trees near a segment.
 - A spatial index (4 m uniform grid of tree proxies and polygon edges) built on load.
+- **Result:** all gates met. The smoke test passes on all six fixtures (rolling the ball in step 3 waits for M3).
+  Our height function is bit-identical to the generator reader's at 600k points. Load 78-105 ms, 13-17 MB per
+  course, height queries 21-39 ns. Numbers and findings: [P0](docs/contracts/P0-course-input.md#in-memory-layout-and-cost-measured-m1-2026-10-12).
+  Found two generator issues: the lake islands exported as ponds, and inconsistent tee sets
+  ([05](docs/05-generator-requests.md#gaps-we-found-in-the-fixtures)).
 - **Gate:** the physics-starter smoke test (its five steps) passes on all six fixtures. Our height function equals
   `course-bundle`'s to 1e-9 m at 100k random points (a `golf-lab` conformance check, the only place we link the
   generator's crate). Load time and memory per course are measured and recorded.
 
-### M2: Flight (`queued`)
+### M2: Flight (`next`)
 
 `golf-flight` with drag, Magnus lift, spin decay, spin-axis handling, wind with a height profile and air density.
 

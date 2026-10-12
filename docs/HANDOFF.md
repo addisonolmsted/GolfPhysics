@@ -4,9 +4,18 @@ Updated 2026-10-11. Read this first when picking the work up in a new session.
 
 ## State
 
-- **M0 done:** repo cloned to `~/Documents/GitHub/GolfPhysics`, workspace with 10 crate scaffolds (`cargo check`
-  passes; no code yet), and the full documentation set. Branch: `main`; the initial commit is pushed.
-- **In progress: M1, the course reader** (see [PLAN.md](../PLAN.md#m1-course-reader-next)).
+- **M0 done** (2026-10-11): scaffold and docs, on `main`.
+- **M1 done** (2026-10-12) on branch `m1-course-reader`, pushed, not merged yet. `golf-course` reads the physics
+  subset of a C0 bundle and answers height, derivatives, class, material, water, OB and penalty queries.
+  - It's bit-identical to the generator's reader.
+  - Measured: load 78-105 ms, 13-17 MB per course, `height` 21 ns, `surface_at` 39 ns.
+  - Tests: 5 unit, 7 fixture (skip without the drive), 1 doc. Clippy clean.
+  - `golf-lab` has `smoke`, `tees`, `bench` and `conform` (`--features conform` links the generator's
+    `course-bundle`; needs `../GolfProceduralGenerator`).
+- **Next: M2, flight.** Put the launch-monitor table in `data/calibration/`, then build the aero model and the
+  fit tool.
+- **Carry into M3:** a patch cache for the height function (a 20k-step roll costs ~0.8 ms against a 0.5 ms
+  budget), and our material override file.
 
 ## Owner decisions waiting
 

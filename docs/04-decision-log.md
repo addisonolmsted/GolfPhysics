@@ -8,6 +8,7 @@ to what a step consumes or produces does.
 
 | # | Date | Decision | Status | Who / where |
 |---|---|---|---|---|
+| D30 | 2026-10-12 | The class raster decides what is wet; `water.json` bodies only name the water and give its surface. Height tiles stay u16 + offset in memory (bit-identical to the generator's reader). | decided (by measurement, M1) | [P0](contracts/P0-course-input.md#the-queries-as-built-m1) |
 | D29 | 2026-10-12 | Baseline carries are tuned so a casual player has a fair game from the middle tees; back tees and tips are for real full-speed swings. Starting values: driver ~210 yd carry, 7-iron ~140 yd, gaps ~10-12 yd. | decided (values tuned in playtests) | owner, 2026-10-12; [assists](gameplay/assists.md#baseline-carry-called-floor-carry-in-the-first-draft) |
 | D28 | 2026-10-12 | Assists are always hidden from players. Devices get a `ShotView` without raw values or the assist log; the full result stays server-side for the lab and tuning. | decided | owner, 2026-10-12; [P2](contracts/P2-shot-result.md#what-leaves-the-server-d28-assists-are-hidden), invariant 5 |
 | D27 | 2026-10-12 | One assist configuration, always: no difficulty levels, modes or per-player settings, so players learn one consistent game. Changes only with a release. | decided | owner, 2026-10-12; [assists](gameplay/assists.md) |

@@ -11,4 +11,5 @@ Shared by every crate: the vocabulary of the engine.
   Field definitions: [00 §2](../../docs/00-architecture.md#the-hand-off-types).
 - **Ball constants:** mass, radius, inertia factor ([models/README](../../docs/models/README.md#the-ball)).
 
-**Depends on:** `libm` only (added in M1). **Status:** scaffold (M0).
+**Depends on:** `libm` only. **Status:** M1 has `math` (libm wrappers and constants), `Vec2`/`Vec3` and the ball
+constants; the hand-off types and the RNG come with M2.

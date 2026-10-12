@@ -8,3 +8,10 @@ license.workspace = true
 golf-core = { workspace = true }
 golf-course = { workspace = true }
 golf-shot = { workspace = true }
+
+# `conform` links the generator's reference reader (its crate and its dependencies) to check our height function
+# against it. Off by default: it needs ../GolfProceduralGenerator checked out next to this repo.
+course-bundle = { path = "../../../GolfProceduralGenerator/crates/course-bundle", optional = true }
+
+[features]
+conform = ["dep:course-bundle"]
