@@ -32,9 +32,9 @@ Real golf has no delay between impact and ball flight, but we can hide 100-200 m
 |---|---|---|
 | Decode payload, look up session state | 0.05 ms | One small message. |
 | Swing → delivery | 0.05 ms | A few hundred IMU samples at most. |
-| Assist (target-aware correction) | 1.5 ms | The raw shot plus up to 5 more flight + ground runs to find the smallest fix. |
+| Assist (target-aware correction) | 1.5 ms | The raw shot plus up to 5 more flight + ground runs to find the smallest fix (~0.3 ms of flight each, measured M2). |
 | Impact | 0.01 ms | Closed form. |
-| Flight | 0.2 ms | About 8k RK4 steps with 4 force evaluations each; height lookups only near the ground. |
+| Flight | 0.3 ms (**measured 0.29 ms**, M2) | ~620 RK4 steps at 10 ms, each with 4 force evaluations (~125 ns each, latency-bound arithmetic); height lookups only near the ground. It was 4.1 ms at 1 ms steps with `libm::pow` before the M2 speed-up. |
 | Ground (bounce + roll + putt) | 0.5 ms | Up to 20k steps, each with one bicubic height and normal lookup. |
 | Rule facts, encode the result | 0.1 ms | Point-in-polygon against a pre-built grid. |
 | **Total** | **≤ 2.5 ms typical, ≤ 3 ms p99** | |

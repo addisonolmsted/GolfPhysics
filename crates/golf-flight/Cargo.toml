@@ -7,3 +7,5 @@ license.workspace = true
 [dependencies]
 golf-core = { workspace = true }
 golf-course = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }

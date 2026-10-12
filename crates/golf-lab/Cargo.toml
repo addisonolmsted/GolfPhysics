@@ -8,6 +8,10 @@ license.workspace = true
 golf-core = { workspace = true }
 golf-course = { workspace = true }
 golf-shot = { workspace = true }
+golf-flight = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+libm = { workspace = true }
 
 # `conform` links the generator's reference reader (its crate and its dependencies) to check our height function
 # against it. Off by default: it needs ../GolfProceduralGenerator checked out next to this repo.

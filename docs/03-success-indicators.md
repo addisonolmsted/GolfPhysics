@@ -11,9 +11,17 @@ become reference columns in the lab, not pass/fail.
 
 ## 1. Launch-monitor targets (flight, M2; impact, M4)
 
-The calibration reference is the **published TrackMan PGA Tour averages**, one row per club. Below are the rows we
-calibrate against first. Before M2 locks its fit, copy the full table (every club, plus the LPGA table, which gives
-a second, slower point per club) into `data/calibration/trackman_tour.v1.json`, with the source and year.
+The calibration reference lives in **`data/calibration/reference.v1.json`** (M2, 2026-10-12), with its sources and
+which fields are verified:
+- **Fit rows:** the TrackMan PGA Tour (12 clubs) and LPGA Tour (11 clubs) tables, and TrackMan's average male
+  amateur driver.
+- **Sniff rows:** 11 never-fitted handicap cases, scratch to a 70 mph driver, each with a carry band and its
+  basis.
+
+The three rows below are a sample of the fit rows.
+
+The model must work for **every golfer, not just tour players** (owner, 2026-10-12). Amateur rows and the sniff
+tests are part of the gate, and a fit that pleases the tour table but misses the sniff bands fails.
 
 | Club | Club speed (mph) | Ball speed (mph) | Launch (°) | Spin (rpm) | Apex (yd) | Landing angle (°) | Carry (yd) |
 |---|---:|---:|---:|---:|---:|---:|---:|
@@ -21,8 +29,9 @@ a second, slower point per club) into `data/calibration/trackman_tour.v1.json`, 
 | 7-iron | 90 | 120 | 16.3 | 7097 | 32 | 50 | 172 |
 | Pitching wedge | 83 | 102 | 24.2 | 9304 | 29 | 52 | 136 |
 
-These figures are from memory of the widely quoted table and **must be checked against the source** when the data
-file is written.
+Club speed, ball speed, launch, spin and carry are verified against a text copy for PGA driver to 6 iron. The apex
+and landing-angle columns (TrackMan publishes them as an image) are still unverified, and count half in the fit.
+**Results:** [flight.md, Results](models/flight.md#results-2026-10-12).
 
 **Tolerances for flight (M2):** given the ball speed, launch and spin from the table, at sea level with no wind:
 
@@ -38,8 +47,13 @@ many drag and lift pairs give the same carry with the wrong shape.
 
 **Shape checks:** a driver at 2000 rpm flies lower and rolls further than one at 3500 rpm. Raising spin past about
 3500 rpm on a driver loses carry (balloons). A 10 m/s headwind costs a 7-iron more carry than a 10 m/s tailwind
-adds. A pure 3° spin axis tilt curves a 7-iron a believable amount (target band to set from launch-monitor curve
-data in M2).
+adds. A pure 3° spin axis tilt curves a 7-iron a believable amount (3-10 yd). A driver gains 4-10 % carry at
+Denver's altitude (TrackMan measures ~2.5 yd per 1,000 ft at 155 mph ball speed; rules of thumb say 1.2-2 % per
+1,000 ft). Repeated flights are bit-identical. All of these are tests in `crates/golf-flight/tests/calibration.rs`.
+
+**Sniff tests:** each sniff row's carry falls in its band. A band is set from published data for that golfer
+(TrackMan Combine club speeds, TrackMan ball-speed rows, Shot Scope by handicap), never moved to make a row pass
+without a recorded reason in the reference file.
 
 **Impact (M4):** the tour-average delivery per club (speed, attack, dynamic loft) reproduces that club's ball speed
 ±2 %, launch ±1° and spin ±10 %. Face and path combinations give the expected shot shapes:

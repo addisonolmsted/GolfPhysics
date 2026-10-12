@@ -50,16 +50,25 @@ decided).
   `course-bundle`'s to 1e-9 m at 100k random points (a `golf-lab` conformance check, the only place we link the
   generator's crate). Load time and memory per course are measured and recorded.
 
-### M2: Flight (`next`)
+### M2: Flight (`done` 2026-10-12, branch `m2-flight`; apex and landing columns to verify)
 
 `golf-flight` with drag, Magnus lift, spin decay, spin-axis handling, wind with a height profile and air density.
 
 - Fixed-step RK4 at 1 ms, with ground-crossing refinement against the real height function.
+- **Result:**
+  - Carry: 24/24 fit rows within ±3 %.
+  - Sniff tests: 11/11 handicap rows in band, from scratch to a 70 mph driver.
+  - Apex: 19/23 within ±10 %. Landing angle: 18/24 within ±3°. All misses but one are against unverified tour
+    figures. The exception: the amateur driver lands 3.8° too steep.
+  - Shape checks pass (spin, wind, curve, altitude, determinism).
+  - Speed: 0.29 ms per flight.
+  - Viewer: "Ball Flight Lab" (`golf-lab view`).
+  - Details: [flight.md](docs/models/flight.md#results-2026-10-12).
 - **Gate:** typed-in launch conditions reproduce the launch-monitor table (carry, apex, landing angle, flight time)
   within the tolerances in [03](docs/03-success-indicators.md), across driver to wedge. Carry, apex and landing
   angle are fitted together, never carry alone (a lesson from GolfEngine).
 
-### M3: Ground (`queued`)
+### M3: Ground (`next`)
 
 `golf-ground`: bounce (velocity-dependent restitution, turf tilt, grip/slip impulse with spin), the slide-to-roll
 switch, rolling resistance, slope gravity, putting, cup capture, water entry, plugging in sand.

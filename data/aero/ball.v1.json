@@ -1,0 +1,383 @@
+{
+  "air": "TrackMan normal: sea level, 23.9 C, 75 % humidity",
+  "command": "cargo run --release -p golf-lab -- fit-aero",
+  "fitted": "2026-10-12",
+  "model": "Cd = cd0 + cd_s * S + cd_s2 * S^2 + cd_v * (36.5 / |u| - 1); Cl = cl_max * S^p / (cl_s_half^p + S^p); dω/dt = -spin_decay_per_m * |u| * ω  (S = r |ω⊥| / |u|, u = ball velocity relative to the air)",
+  "objective": "sum over fit rows of ((carry err) / 3 %)^2 + ((apex err) / 10 %)^2 + ((land err) / 3 deg)^2, unverified fields at half weight, plus a weak prior on spin decay; final value below",
+  "objective_value": 23.36,
+  "params": {
+    "cd0": 0.23290766933372187,
+    "cd_s": 0.4617172093343517,
+    "cd_s2": -0.3452152731315161,
+    "cd_v": 0.13089757530017826,
+    "cl_max": 0.47631864528376777,
+    "cl_p": 1.197651980717169,
+    "cl_s_half": 0.1696626128028743,
+    "spin_decay_per_m": 0.0004959579605398731
+  },
+  "reference": "data/calibration/reference.v1.json (fit_rows)",
+  "residuals": [
+    {
+      "apex_yd": [
+        33.4,
+        32.0
+      ],
+      "carry_yd": [
+        269.8,
+        275.0
+      ],
+      "id": "pga-dr",
+      "land_deg": [
+        41.0,
+        38.0
+      ]
+    },
+    {
+      "apex_yd": [
+        32.6,
+        30.0
+      ],
+      "carry_yd": [
+        249.0,
+        243.0
+      ],
+      "id": "pga-3w",
+      "land_deg": [
+        43.2,
+        43.0
+      ]
+    },
+    {
+      "apex_yd": [
+        33.8,
+        31.0
+      ],
+      "carry_yd": [
+        234.6,
+        230.0
+      ],
+      "id": "pga-5w",
+      "land_deg": [
+        45.4,
+        47.0
+      ]
+    },
+    {
+      "apex_yd": [
+        32.5,
+        29.0
+      ],
+      "carry_yd": [
+        223.1,
+        225.0
+      ],
+      "id": "pga-hy",
+      "land_deg": [
+        45.0,
+        47.0
+      ]
+    },
+    {
+      "apex_yd": [
+        31.2,
+        27.0
+      ],
+      "carry_yd": [
+        214.7,
+        212.0
+      ],
+      "id": "pga-3i",
+      "land_deg": [
+        44.7,
+        46.0
+      ]
+    },
+    {
+      "apex_yd": [
+        30.1,
+        28.0
+      ],
+      "carry_yd": [
+        204.6,
+        203.0
+      ],
+      "id": "pga-4i",
+      "land_deg": [
+        44.6,
+        48.0
+      ]
+    },
+    {
+      "apex_yd": [
+        30.6,
+        31.0
+      ],
+      "carry_yd": [
+        193.5,
+        194.0
+      ],
+      "id": "pga-5i",
+      "land_deg": [
+        45.8,
+        49.0
+      ]
+    },
+    {
+      "apex_yd": [
+        32.7,
+        30.0
+      ],
+      "carry_yd": [
+        181.6,
+        183.0
+      ],
+      "id": "pga-6i",
+      "land_deg": [
+        48.0,
+        50.0
+      ]
+    },
+    {
+      "apex_yd": [
+        32.6,
+        32.0
+      ],
+      "carry_yd": [
+        167.1,
+        172.0
+      ],
+      "id": "pga-7i",
+      "land_deg": [
+        48.8,
+        50.0
+      ]
+    },
+    {
+      "apex_yd": [
+        32.6,
+        31.0
+      ],
+      "carry_yd": [
+        157.1,
+        160.0
+      ],
+      "id": "pga-8i",
+      "land_deg": [
+        49.1,
+        50.0
+      ]
+    },
+    {
+      "apex_yd": [
+        32.0,
+        30.0
+      ],
+      "carry_yd": [
+        146.5,
+        148.0
+      ],
+      "id": "pga-9i",
+      "land_deg": [
+        49.2,
+        51.0
+      ]
+    },
+    {
+      "apex_yd": [
+        32.4,
+        29.0
+      ],
+      "carry_yd": [
+        134.3,
+        136.0
+      ],
+      "id": "pga-pw",
+      "land_deg": [
+        50.0,
+        52.0
+      ]
+    },
+    {
+      "apex_yd": [
+        25.8,
+        25.0
+      ],
+      "carry_yd": [
+        215.7,
+        218.0
+      ],
+      "id": "lpga-dr",
+      "land_deg": [
+        37.4,
+        37.0
+      ]
+    },
+    {
+      "apex_yd": [
+        18.6,
+        23.0
+      ],
+      "carry_yd": [
+        192.8,
+        195.0
+      ],
+      "id": "lpga-3w",
+      "land_deg": [
+        31.4,
+        39.0
+      ]
+    },
+    {
+      "apex_yd": [
+        26.0,
+        26.0
+      ],
+      "carry_yd": [
+        188.4,
+        185.0
+      ],
+      "id": "lpga-5w",
+      "land_deg": [
+        41.8,
+        43.0
+      ]
+    },
+    {
+      "apex_yd": [
+        24.7,
+        25.0
+      ],
+      "carry_yd": [
+        178.1,
+        174.0
+      ],
+      "id": "lpga-7w",
+      "land_deg": [
+        41.5,
+        46.0
+      ]
+    },
+    {
+      "apex_yd": [
+        23.7,
+        24.0
+      ],
+      "carry_yd": [
+        164.6,
+        169.0
+      ],
+      "id": "lpga-4i",
+      "land_deg": [
+        41.6,
+        43.0
+      ]
+    },
+    {
+      "apex_yd": [
+        22.7,
+        23.0
+      ],
+      "carry_yd": [
+        156.2,
+        161.0
+      ],
+      "id": "lpga-5i",
+      "land_deg": [
+        41.4,
+        45.0
+      ]
+    },
+    {
+      "apex_yd": [
+        25.5,
+        25.0
+      ],
+      "carry_yd": [
+        149.6,
+        152.0
+      ],
+      "id": "lpga-6i",
+      "land_deg": [
+        44.9,
+        46.0
+      ]
+    },
+    {
+      "apex_yd": [
+        25.6,
+        26.0
+      ],
+      "carry_yd": [
+        139.3,
+        141.0
+      ],
+      "id": "lpga-7i",
+      "land_deg": [
+        45.9,
+        47.0
+      ]
+    },
+    {
+      "apex_yd": [
+        25.9,
+        25.0
+      ],
+      "carry_yd": [
+        131.5,
+        130.0
+      ],
+      "id": "lpga-8i",
+      "land_deg": [
+        46.7,
+        47.0
+      ]
+    },
+    {
+      "apex_yd": [
+        25.1,
+        26.0
+      ],
+      "carry_yd": [
+        118.8,
+        119.0
+      ],
+      "id": "lpga-9i",
+      "land_deg": [
+        47.5,
+        47.0
+      ]
+    },
+    {
+      "apex_yd": [
+        22.7,
+        23.0
+      ],
+      "carry_yd": [
+        106.8,
+        107.0
+      ],
+      "id": "lpga-pw",
+      "land_deg": [
+        46.5,
+        48.0
+      ]
+    },
+    {
+      "apex_yd": [
+        24.9,
+        null
+      ],
+      "carry_yd": [
+        200.3,
+        204.0
+      ],
+      "id": "ama-dr",
+      "land_deg": [
+        38.6,
+        34.8
+      ]
+    }
+  ],
+  "status": "fitted",
+  "version": 1
+}

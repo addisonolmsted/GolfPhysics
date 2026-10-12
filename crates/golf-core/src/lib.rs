@@ -3,8 +3,12 @@
 //! Everything in the engine that crosses a crate boundary uses these types. The frame is C0's: metres, x east,
 //! y north, z up, origin at the world's south-west corner.
 
+pub mod air;
 pub mod ball;
+pub mod launch;
 pub mod math;
 pub mod vec;
 
+pub use air::Air;
+pub use launch::LaunchConditions;
 pub use vec::{Vec2, Vec3};

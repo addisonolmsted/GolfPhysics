@@ -72,6 +72,7 @@ dependencies = [
  "course-phonemap",
  "course-seed",
  "course-validate",
+ "course-world",
  "rayon",
  "serde_json",
  "webp",
@@ -260,6 +261,8 @@ version = "0.0.0"
 dependencies = [
  "golf-core",
  "golf-course",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -284,7 +287,11 @@ dependencies = [
  "course-bundle",
  "golf-core",
  "golf-course",
+ "golf-flight",
  "golf-shot",
+ "libm",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

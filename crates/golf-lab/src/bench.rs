@@ -74,6 +74,26 @@ pub fn run(dir: &Path) -> Result<(), String> {
     black_box(ob);
     let r_ns = t.elapsed().as_secs_f64() * 1e9 / (1 << 18) as f64;
     println!("  per query: height {z_ns:.0} ns, height + derivatives {s_ns:.0} ns, class {c_ns:.0} ns, OB + penalty {r_ns:.0} ns");
+    // flights over the real ground: every hole's back tee towards its aim, three launch types
+    let a = golf_flight::AeroParams::builtin();
+    let m = golf_flight::Model::new(a, golf_core::Air::trackman_normal(), golf_flight::Wind::new(4.0, 1.0), &c);
+    let launches = [(167.0, 10.9, 2686.0), (132.6, 12.6, 3275.0), (106.0, 17.5, 6500.0)];
+    let mut n_fl = 0u32;
+    let mut steps = 0usize;
+    let t = Instant::now();
+    for _ in 0..20 {
+        for h in &c.holes {
+            let tee = &h.tees[0];
+            let az = golf_core::math::atan2(tee.aim[1] - tee.plate[1], tee.aim[0] - tee.plate[0]);
+            for (mph, la, sp) in launches {
+                let f = m.fly(Vec2::new(tee.plate[0], tee.plate[1]), &golf_core::LaunchConditions::from_monitor(mph, la, az, sp, 2.0));
+                steps += (f.time_s() / golf_flight::flight::DT_S).round() as usize;
+                n_fl += 1;
+            }
+        }
+    }
+    let fl_us = t.elapsed().as_secs_f64() * 1e6 / n_fl as f64;
+    println!("  flight over the course (wind on): {fl_us:.0} us per flight, {} steps on average", steps / n_fl as usize);
     println!("  (a 20k-step ground roll with one height + derivative query per step: {:.2} ms)", 20_000.0 * s_ns / 1e6);
     Ok(())
 }

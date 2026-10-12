@@ -9,4 +9,12 @@ bisection, tree and flagstick contact.
 - Aero coefficients: `data/aero/ball.v1.json` (from the M2 fit).
 - Also runs the short hops between bounces for `golf-ground`.
 
-**Depends on:** `golf-core`, `golf-course`. **Status:** scaffold (M0); M2.
+**API:** `Model::new(aero, air, wind, &ground).fly(start_xy, &launch) -> Flight` (samples, apex, the contact state,
+how it ended), or `fly_from(state)` for a bounce hop. `Ground` is implemented for `Course` (heights, water above
+the bed) and `Flat` (calibration).
+
+**Tests:** `tests/calibration.rs`: every fit row within 4 %, every sniff band, and the shape checks (spin optimum,
+wind asymmetry, curve, altitude, determinism).
+
+**Depends on:** `golf-core`, `golf-course`, `serde`. **Status:** M2 done (2026-10-12); results in
+[flight.md](../../docs/models/flight.md#results-2026-10-12).

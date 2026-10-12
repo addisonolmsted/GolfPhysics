@@ -12,8 +12,16 @@ Updated 2026-10-11. Read this first when picking the work up in a new session.
   - Tests: 5 unit, 7 fixture (skip without the drive), 1 doc. Clippy clean.
   - `golf-lab` has `smoke`, `tees`, `bench` and `conform` (`--features conform` links the generator's
     `course-bundle`; needs `../GolfProceduralGenerator`).
-- **Next: M2, flight.** Put the launch-monitor table in `data/calibration/`, then build the aero model and the
-  fit tool.
+- **M2 done** (2026-10-12) on branch `m2-flight` (off `m1-course-reader`), pushed, not merged. `golf-flight` flies
+  launch conditions over flat ground or a course.
+  - Carry: 24/24 TrackMan tour and amateur rows within ±3 %.
+  - Sniff tests: 11/11 never-fitted handicap rows in band.
+  - Shape checks pass.
+  - Speed: 0.29 ms per flight.
+  - Viewer: "Ball Flight Lab", https://claude.ai/artifact/L3wjwWT6N9PNYesM9PYf2g (rebuild with
+    `golf-lab view`, republish the same file).
+  - Open: verify TrackMan's apex and landing-angle columns; drivers land 3-4° steep.
+- **Next: M3, ground.** Bounce, roll, putting, the patch cache, our material file.
 - **Carry into M3:** a patch cache for the height function (a 20k-step roll costs ~0.8 ms against a 0.5 ms
   budget), and our material override file.
 

@@ -1,0 +1,430 @@
+<title>Ball Flight Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a range card. Status strip, tabs per data set, then the side view (the hero), the top view, and the
+   model-against-reference table. Trajectories in range blue, reference marks in flag orange. */
+:root {
+  --bg: #f1f4ef;
+  --surface: #ffffff;
+  --ink: #1b2822;
+  --muted: #5d6b64;
+  --line: #d3dbd5;
+  --grid: #e6ece7;
+  --accent: #1d6bb0;
+  --ref: #c45a17;
+  --good: #2c7a4b;
+  --warn: #a8750a;
+  --bad: #b3261e;
+  --ground: #c9d8c6;
+  --traj-l: 42%;
+  --display: "Barlow Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
+  --body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111814; --surface: #18211c; --ink: #e2eae4; --muted: #94a59b; --line: #2b3831; --grid: #1f2a24;
+    --accent: #5eaaf0; --ref: #f08c4a; --good: #5cc18a; --warn: #e2b23f; --bad: #f2786c; --ground: #2a3b2f;
+    --traj-l: 66%; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111814; --surface: #18211c; --ink: #e2eae4; --muted: #94a59b; --line: #2b3831; --grid: #1f2a24;
+  --accent: #5eaaf0; --ref: #f08c4a; --good: #5cc18a; --warn: #e2b23f; --bad: #f2786c; --ground: #2a3b2f;
+  --traj-l: 66%; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--body); }
+.wrap { max-width: 1180px; margin: 0 auto; padding-inline: 20px; padding-block: 24px 48px; display: grid; gap: 20px; }
+header { display: grid; gap: 10px; }
+h1 { font: 700 2.4rem/1 var(--display); letter-spacing: 0.01em; margin: 0; text-wrap: balance; }
+h2 { font: 600 1.35rem/1.15 var(--display); letter-spacing: 0.02em; margin: 0; text-wrap: balance; }
+.lede { color: var(--muted); max-width: 70ch; margin: 0; }
+.status { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line);
+  font: 500 0.82rem/1.4 var(--mono); background: var(--surface); white-space: nowrap; }
+.chip .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.chip.good { color: var(--good); } .chip.warn { color: var(--warn); } .chip.bad { color: var(--bad); } .chip.plain { color: var(--muted); }
+nav { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--line); }
+nav button { font: 600 1.02rem/1 var(--display); letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted);
+  background: none; border: 0; border-bottom: 3px solid transparent; padding: 10px 12px 9px; cursor: pointer; }
+nav button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+nav button:focus-visible, .btn:focus-visible, .legend button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+.panel-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; }
+.note { color: var(--muted); margin: 0; max-width: 80ch; font-size: 0.92rem; }
+.btn { font: 600 0.95rem/1 var(--display); letter-spacing: 0.06em; text-transform: uppercase; border: 1px solid var(--accent);
+  color: var(--accent); background: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; }
+.btn:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.charts { display: grid; gap: 6px; }
+.chart-label { font: 500 0.75rem/1 var(--mono); color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+svg { display: block; width: 100%; height: auto; max-width: 100%; }
+svg text { font-family: var(--mono); font-size: 11px; fill: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px; }
+.legend button { display: inline-flex; align-items: center; gap: 6px; font: 500 0.8rem/1.3 var(--mono); color: var(--ink);
+  background: none; border: 1px solid var(--line); border-radius: 4px; padding: 3px 8px; cursor: pointer; }
+.legend button .sw { width: 14px; height: 3px; border-radius: 2px; }
+.legend button[aria-pressed="true"] { border-color: var(--ink); }
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font: 400 0.84rem/1.35 var(--mono); font-variant-numeric: tabular-nums; }
+th { font: 600 0.78rem/1.2 var(--display); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); text-align: right;
+  padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+td { padding: 5px 8px; border-bottom: 1px solid var(--grid); text-align: right; white-space: nowrap; }
+tr.hot td { background: color-mix(in srgb, var(--accent) 9%, transparent); }
+td .sub { color: var(--muted); }
+td.basis { white-space: normal; text-align: left; color: var(--muted); font-family: var(--body); font-size: 0.85rem; min-width: 22ch; max-width: 60ch; }
+.pill { display: inline-block; padding: 1px 7px; border-radius: 3px; font: 600 0.74rem/1.5 var(--mono); }
+.pill.good { color: var(--good); background: color-mix(in srgb, var(--good) 13%, transparent); }
+.pill.warn { color: var(--warn); background: color-mix(in srgb, var(--warn) 15%, transparent); }
+.pill.bad { color: var(--bad); background: color-mix(in srgb, var(--bad) 13%, transparent); }
+.unv { color: var(--muted); }
+.keys { display: flex; flex-wrap: wrap; gap: 14px; font: 400 0.8rem/1.3 var(--mono); color: var(--muted); }
+.keys span { display: inline-flex; align-items: center; gap: 6px; }
+.k-line { width: 18px; height: 3px; background: var(--accent); border-radius: 2px; }
+.k-ref { width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 9px solid var(--ref); }
+.k-band { width: 18px; height: 9px; background: color-mix(in srgb, var(--ref) 28%, transparent); border: 1px solid var(--ref); }
+.k-apex { width: 16px; border-top: 2px dashed var(--ref); }
+footer { color: var(--muted); font-size: 0.85rem; display: grid; gap: 6px; }
+footer code { font-family: var(--mono); font-size: 0.8rem; }
+@media (max-width: 560px) { h1 { font-size: 2rem; } .panel { padding: 12px; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Ball Flight Lab</h1>
+    <p class="lede">The GolfPhysics flight model (M2) against TrackMan tour and amateur data, handicap sniff tests and physical shape checks. Every shot is flown by the engine on flat ground in TrackMan's normalised air (sea level, 75 °F, 75 % humidity), no wind unless stated.</p>
+    <div class="status" id="status"></div>
+  </header>
+  <nav role="tablist" id="tabs" aria-label="Data sets"></nav>
+  <section class="panel" id="panel" aria-live="polite"></section>
+  <footer>
+    <div>Distances in yards. Height axes are stretched so a 30-yard apex is readable; the scale is printed on each chart.</div>
+    <div>Built by <code>cargo run --release -p golf-lab -- view</code> from <code>data/calibration/reference.v1.json</code> and <code>data/aero/ball.v1.json</code>. Rows marked "unverified" are tour figures not yet checked against TrackMan's own table; they count half in the fit.</div>
+  </footer>
+</div>
+
+<script>
+const DATA = /*__DATA__*/null;
+const NS = "http://www.w3.org/2000/svg";
+const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const el = (tag, attrs = {}, kids = []) => {
+  const e = tag.startsWith("svg:") ? document.createElementNS(NS, tag.slice(4)) : document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v === null || v === undefined) continue;
+    if (k === "text") e.textContent = v; else e.setAttribute(k, v);
+  }
+  for (const k of kids) if (k) e.append(k);
+  return e;
+};
+const fmt = (v, d = 1) => (v === null || v === undefined) ? "–" : Number(v).toFixed(d);
+function trajColor(i, n) {
+  const t = n <= 1 ? 0 : i / (n - 1);
+  const hue = 212 - t * 190;
+  return `hsl(${hue.toFixed(0)} 62% ${css("--traj-l")})`;
+}
+function niceStep(range, ticks) {
+  const raw = range / ticks, p = Math.pow(10, Math.floor(Math.log10(raw)));
+  return [1, 2, 2.5, 5, 10].map(m => m * p).find(s => s >= raw) || 10 * p;
+}
+
+/* ---------- charts ---------- */
+// side view: x = downrange, y = height. opts: rows [{label,color,path,ref?}], terrain?
+function sideView(rows, opts = {}) {
+  const W = 1000, H = opts.height || 330, L = 46, R = 16, T = 14, B = 34;
+  let xmax = 0, ymax = 0, ymin = 0;
+  for (const r of rows) for (const p of r.path) { xmax = Math.max(xmax, p[0]); ymax = Math.max(ymax, p[2]); ymin = Math.min(ymin, p[2]); }
+  for (const r of rows) { if (r.ref && r.ref.carry) xmax = Math.max(xmax, r.ref.carry); if (r.ref && r.ref.band) xmax = Math.max(xmax, r.ref.band[1]); if (r.ref && r.ref.apex) ymax = Math.max(ymax, r.ref.apex); }
+  if (opts.terrain) for (const t of opts.terrain) { if (t[0] <= xmax * 1.08) { ymin = Math.min(ymin, t[1]); ymax = Math.max(ymax, t[1]); } }
+  xmax = Math.ceil(xmax * 1.06 / 10) * 10; ymax = Math.ceil(ymax * 1.15 / 5) * 5; ymin = Math.floor(Math.min(0, ymin) / 5) * 5;
+  const sx = (x) => L + (x / xmax) * (W - L - R);
+  const sy = (y) => T + (1 - (y - ymin) / (ymax - ymin)) * (H - T - B);
+  const exag = ((W - L - R) / xmax) / ((H - T - B) / (ymax - ymin));
+  const svg = el("svg:svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": opts.aria || "Side view of the trajectories" });
+  const xs = niceStep(xmax, 8), ys = niceStep(ymax - ymin, 5);
+  for (let x = 0; x <= xmax + 1e-6; x += xs) {
+    svg.append(el("svg:line", { x1: sx(x), x2: sx(x), y1: T, y2: H - B, stroke: css("--grid"), "stroke-width": 1 }));
+    svg.append(el("svg:text", { x: sx(x), y: H - B + 16, "text-anchor": "middle", text: x.toFixed(0) }));
+  }
+  for (let y = Math.ceil(ymin / ys) * ys; y <= ymax + 1e-6; y += ys) {
+    svg.append(el("svg:line", { x1: L, x2: W - R, y1: sy(y), y2: sy(y), stroke: css("--grid"), "stroke-width": 1 }));
+    svg.append(el("svg:text", { x: L - 6, y: sy(y) + 4, "text-anchor": "end", text: y.toFixed(0) }));
+  }
+  svg.append(el("svg:text", { x: W - R, y: H - 4, "text-anchor": "end", text: `downrange (yd) · height ×${exag.toFixed(1)}` }));
+  if (opts.terrain) {
+    const cls = opts.classColor;
+    let d = `M ${sx(0)} ${sy(ymin)} `;
+    for (const t of opts.terrain) if (t[0] <= xmax) d += `L ${sx(t[0])} ${sy(t[1])} `;
+    const last = opts.terrain.filter(t => t[0] <= xmax).pop();
+    d += `L ${sx(last[0])} ${sy(ymin)} Z`;
+    svg.append(el("svg:path", { d, fill: css("--ground"), stroke: "none" }));
+    for (let i = 1; i < opts.terrain.length; i++) {
+      const a = opts.terrain[i - 1], b = opts.terrain[i];
+      if (b[0] > xmax) break;
+      svg.append(el("svg:line", { x1: sx(a[0]), y1: sy(a[1]), x2: sx(b[0]), y2: sy(b[1]), stroke: cls(a[2]), "stroke-width": 5, "stroke-linecap": "butt" }));
+    }
+  } else {
+    svg.append(el("svg:line", { x1: L, x2: W - R, y1: sy(0), y2: sy(0), stroke: css("--muted"), "stroke-width": 1.2 }));
+  }
+  const groups = [];
+  rows.forEach((r, i) => {
+    const g = el("svg:g", { "data-i": i });
+    if (r.ref && r.ref.rule_band) {
+      const [a, b] = r.ref.rule_band;
+      g.append(el("svg:rect", { x: sx(a), y: sy(0) - 3, width: sx(b) - sx(a), height: 6, fill: "none", stroke: css("--ref"), "stroke-dasharray": "3 3", "stroke-width": 1, opacity: 0.8 }));
+    }
+    if (r.ref && r.ref.band) {
+      const [a, b] = r.ref.band;
+      g.append(el("svg:rect", { x: sx(a), y: sy(0) - 4, width: sx(b) - sx(a), height: 8, fill: css("--ref"), "fill-opacity": 0.25, stroke: css("--ref"), "stroke-width": 1 }));
+    }
+    if (r.ref && r.ref.carry) {
+      const x = sx(r.ref.carry), y = sy(0);
+      g.append(el("svg:path", { d: `M ${x} ${y - 1} l -6 10 l 12 0 z`, fill: css("--ref") }));
+    }
+    if (r.ref && r.ref.apex) {
+      let ax = 0, az = -1; for (const p of r.path) if (p[2] > az) { az = p[2]; ax = p[0]; }
+      g.append(el("svg:line", { x1: sx(ax - xmax * 0.03), x2: sx(ax + xmax * 0.03), y1: sy(r.ref.apex), y2: sy(r.ref.apex), stroke: css("--ref"), "stroke-width": 2, "stroke-dasharray": "4 3" }));
+    }
+    const d = r.path.map((p, k) => `${k ? "L" : "M"} ${sx(p[0]).toFixed(1)} ${sy(p[2]).toFixed(1)}`).join(" ");
+    g.append(el("svg:path", { d, fill: "none", stroke: r.color, "stroke-width": 2.2, "stroke-linejoin": "round", "stroke-linecap": "round" }));
+    const end = r.path[r.path.length - 1];
+    g.append(el("svg:circle", { cx: sx(end[0]), cy: sy(end[2]), r: 3.2, fill: r.color }));
+    const ball = el("svg:circle", { cx: sx(r.path[0][0]), cy: sy(r.path[0][2]), r: 4.5, fill: css("--surface"), stroke: r.color, "stroke-width": 2, opacity: 0 });
+    g.append(ball);
+    svg.append(g);
+    groups.push({ g, ball, r, sx, sy });
+  });
+  return { svg, groups };
+}
+
+// top view: x = downrange, y = lateral (+ right, drawn downwards like a map seen from behind the ball)
+function topView(rows, opts = {}) {
+  const W = 1000, H = opts.height || 150, L = 46, R = 16, T = 10, B = 30;
+  let xmax = 0, lat = 5;
+  for (const r of rows) for (const p of r.path) { xmax = Math.max(xmax, p[0]); lat = Math.max(lat, Math.abs(p[1])); }
+  for (const r of rows) if (r.ref && r.ref.carry) xmax = Math.max(xmax, r.ref.carry);
+  xmax = Math.ceil(xmax * 1.06 / 10) * 10; lat = Math.ceil(lat * 1.2 / 5) * 5;
+  const sx = (x) => L + (x / xmax) * (W - L - R);
+  const sy = (y) => T + ((y + lat) / (2 * lat)) * (H - T - B);
+  const svg = el("svg:svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Top view of the trajectories" });
+  const xs = niceStep(xmax, 8);
+  for (let x = 0; x <= xmax + 1e-6; x += xs) {
+    svg.append(el("svg:line", { x1: sx(x), x2: sx(x), y1: T, y2: H - B, stroke: css("--grid") }));
+    svg.append(el("svg:text", { x: sx(x), y: H - B + 16, "text-anchor": "middle", text: x.toFixed(0) }));
+  }
+  for (const y of [-lat, 0, lat]) {
+    svg.append(el("svg:line", { x1: L, x2: W - R, y1: sy(y), y2: sy(y), stroke: y === 0 ? css("--muted") : css("--grid"), "stroke-dasharray": y === 0 ? "5 4" : null }));
+    svg.append(el("svg:text", { x: L - 6, y: sy(y) + 4, "text-anchor": "end", text: y === 0 ? "0" : (y > 0 ? `R ${y}` : `L ${-y}`) }));
+  }
+  svg.append(el("svg:text", { x: W - R, y: H - 4, "text-anchor": "end", text: "downrange (yd) · offline (yd)" }));
+  const groups = [];
+  rows.forEach((r, i) => {
+    const g = el("svg:g", { "data-i": i });
+    const d = r.path.map((p, k) => `${k ? "L" : "M"} ${sx(p[0]).toFixed(1)} ${sy(p[1]).toFixed(1)}`).join(" ");
+    g.append(el("svg:path", { d, fill: "none", stroke: r.color, "stroke-width": 2, "stroke-linecap": "round" }));
+    const end = r.path[r.path.length - 1];
+    g.append(el("svg:circle", { cx: sx(end[0]), cy: sy(end[1]), r: 3, fill: r.color }));
+    const ball = el("svg:circle", { cx: sx(r.path[0][0]), cy: sy(r.path[0][1]), r: 4, fill: css("--surface"), stroke: r.color, "stroke-width": 2, opacity: 0 });
+    g.append(ball);
+    svg.append(g);
+    groups.push({ g, ball, r, sx, sy, top: true });
+  });
+  return { svg, groups };
+}
+
+/* ---------- interaction ---------- */
+let anim = null;
+function fly(allGroups) {
+  if (anim) cancelAnimationFrame(anim);
+  const SAMPLE_S = 0.033;
+  const longest = Math.max(...allGroups.map(g => g.r.path.length)) * SAMPLE_S;
+  const t0 = performance.now();
+  const step = (now) => {
+    const t = reduceMotion ? longest : (now - t0) / 1000;
+    for (const G of allGroups) {
+      const k = Math.min(G.r.path.length - 1, Math.floor(t / SAMPLE_S));
+      const p = G.r.path[k];
+      G.ball.setAttribute("cx", G.sx(p[0]));
+      G.ball.setAttribute("cy", G.top ? G.sy(p[1]) : G.sy(p[2]));
+      G.ball.setAttribute("opacity", t < longest + 0.6 ? 1 : 0);
+    }
+    if (t < longest + 0.6) anim = requestAnimationFrame(step); else anim = null;
+  };
+  anim = requestAnimationFrame(step);
+}
+function highlight(allGroups, rowsEls, i) {
+  for (const G of allGroups) G.g.setAttribute("opacity", i === null || +G.g.dataset.i === i ? 1 : 0.18);
+  rowsEls.forEach((tr, k) => tr.classList.toggle("hot", k === i));
+}
+
+/* ---------- panels ---------- */
+function errPill(err) {
+  const a = Math.abs(err);
+  const cls = a <= 3 ? "good" : a <= 5 ? "warn" : "bad";
+  return el("span", { class: `pill ${cls}`, text: `${err >= 0 ? "+" : ""}${err.toFixed(1)} %` });
+}
+function keys(items) {
+  const k = el("div", { class: "keys" });
+  const map = { line: "k-line", ref: "k-ref", band: "k-band", apex: "k-apex" };
+  for (const [kind, label] of items) k.append(el("span", {}, [el("i", { class: map[kind] }), document.createTextNode(label)]));
+  return k;
+}
+
+function renderGroup(group) {
+  const panel = document.getElementById("panel");
+  panel.replaceChildren();
+  const rows = group.rows.map((r, i) => ({ ...r, label: r.kind === "sniff" ? `${r.group} · ${r.club}` : r.club, color: trajColor(i, group.rows.length), path: r.model.path }));
+  const sniff = rows[0] && rows[0].kind === "sniff";
+  const head = el("div", { class: "panel-head" }, [
+    el("h2", { text: sniff ? "Handicap sniff tests" : `${group.name}` }),
+    el("button", { class: "btn", type: "button", id: "fly", text: "Fly" })
+  ]);
+  panel.append(head);
+  panel.append(el("p", { class: "note", text: sniff
+    ? "Never fitted. Club speeds come from TrackMan Combine averages by handicap; ball speed, launch and spin are assumptions standing in for the impact model (M4). The shaded band is what that golfer carries; a dashed outline is the older club-speed rule of thumb, kept where the band was re-anchored to TrackMan ball-speed data."
+    : "Fitted: the model's carry, apex and landing angle against TrackMan's table, all rows at once. Orange triangles are TrackMan's carry; dashed orange marks are its apex." }));
+  panel.append(keys(sniff ? [["line", "model flight"], ["band", "carry band"]] : [["line", "model flight"], ["ref", "TrackMan carry"], ["apex", "TrackMan apex"]]));
+  const legend = el("div", { class: "legend" });
+  const side = sideView(rows, { aria: `${group.name}: side view` });
+  const top = topView(rows, { height: 120 });
+  const all = [...side.groups, ...top.groups];
+  panel.append(el("div", { class: "charts" }, [el("div", { class: "chart-label", text: "Side view" }), side.svg, el("div", { class: "chart-label", text: "Top view" }), top.svg]));
+  panel.append(legend);
+
+  const table = el("table");
+  const hdr = sniff
+    ? ["Golfer", "Club", "Club mph", "Ball mph", "Launch°", "Spin rpm", "Carry", "Band", "", "Apex", "Land°", "Why this band"]
+    : ["Club", "Club mph", "Ball mph", "Launch°", "Spin rpm", "Carry", "TrackMan", "Error", "Apex", "TrackMan", "Land°", "TrackMan", "Check"];
+  table.append(el("thead", {}, [el("tr", {}, hdr.map(h => el("th", { text: h })))]));
+  const tb = el("tbody");
+  const trs = [];
+  rows.forEach((r, i) => {
+    const m = r.model;
+    let tds;
+    if (sniff) {
+      const [a, b] = r.ref.band, ok = m.carry >= a && m.carry <= b;
+      tds = [el("td", { text: r.group }), el("td", { text: r.club }), el("td", { text: fmt(r.club_mph, 0) }), el("td", { text: fmt(r.ball_mph, 0) }),
+        el("td", { text: fmt(r.launch_deg) }), el("td", { text: fmt(r.spin_rpm, 0) }), el("td", { text: fmt(m.carry) }),
+        el("td", { text: `${a}–${b}` }), el("td", {}, [el("span", { class: `pill ${ok ? "good" : "bad"}`, text: ok ? "in band" : "out" })]),
+        el("td", { text: fmt(m.apex) }), el("td", { text: fmt(m.land) }), el("td", { class: "basis", text: r.basis })];
+    } else {
+      const err = (m.carry - r.ref.carry) / r.ref.carry * 100;
+      const v = r.verified;
+      const unv = (f) => !(v === true || (typeof v === "string" && v.split(",").map(s => s.trim()).includes(f)));
+      const refCell = (val, field) => el("td", { class: val !== null && unv(field) ? "unv" : "" , text: val === null || val === undefined ? "–" : fmt(val, 0) + (val !== null && unv(field) ? "*" : "") });
+      tds = [el("td", { text: r.club }), el("td", { text: fmt(r.club_mph, 0) }), el("td", { text: fmt(r.ball_mph, 1) }), el("td", { text: fmt(r.launch_deg) }),
+        el("td", { text: fmt(r.spin_rpm, 0) }), el("td", { text: fmt(m.carry) }), refCell(r.ref.carry, "carry"), el("td", {}, [errPill(err)]),
+        el("td", { text: fmt(m.apex) }), refCell(r.ref.apex, "apex"), el("td", { text: fmt(m.land) }), refCell(r.ref.land, "land"),
+        el("td", {}, [el("span", { class: `pill ${Math.abs(err) <= 3 ? "good" : "warn"}`, text: Math.abs(err) <= 3 ? "carry ±3 %" : "outside ±3 %" })])];
+    }
+    const tr = el("tr", {}, tds);
+    tr.addEventListener("mouseenter", () => highlight(all, trs, i));
+    tr.addEventListener("mouseleave", () => highlight(all, trs, null));
+    trs.push(tr); tb.append(tr);
+    const b = el("button", { type: "button", "aria-pressed": "false" }, [el("span", { class: "sw", style: `background:${r.color}` }), document.createTextNode(r.label)]);
+    b.addEventListener("click", () => { const on = b.getAttribute("aria-pressed") !== "true"; legend.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", "false")); b.setAttribute("aria-pressed", on); highlight(all, trs, on ? i : null); });
+    legend.append(b);
+  });
+  table.append(tb);
+  panel.append(el("div", { class: "table-wrap" }, [table]));
+  if (!sniff) panel.append(el("p", { class: "note", text: "* not yet verified against TrackMan's own table (counts half in the fit)." }));
+  document.getElementById("fly").addEventListener("click", () => fly(all));
+}
+
+function renderShapes() {
+  const panel = document.getElementById("panel");
+  panel.replaceChildren();
+  const head = el("div", { class: "panel-head" }, [el("h2", { text: "Shape checks" }), el("button", { class: "btn", type: "button", id: "fly", text: "Fly" })]);
+  panel.append(head);
+  panel.append(el("p", { class: "note", text: "Physical behaviour that must hold whatever the fit: these are cargo tests in golf-flight." }));
+  const all = [];
+  for (const key of ["spin", "wind", "curve", "altitude"]) {
+    const s = DATA.shapes[key];
+    const rows = s.rows.map((r, i) => ({ label: r.label, color: trajColor(i, s.rows.length), path: r.model.path, m: r.model }));
+    const side = sideView(rows, { height: 260, aria: s.title });
+    const showTop = key === "curve" || key === "wind";
+    const top = showTop ? topView(rows, { height: 140 }) : null;
+    all.push(...side.groups, ...(top ? top.groups : []));
+    const t = el("table");
+    t.append(el("thead", {}, [el("tr", {}, ["Case", "Carry", "Apex", "Land°", "Offline", "Time s"].map(h => el("th", { text: h })))]));
+    const tb = el("tbody");
+    for (const r of rows) tb.append(el("tr", {}, [
+      el("td", {}, [el("span", { class: "sw", style: `display:inline-block;width:12px;height:3px;margin-right:6px;vertical-align:middle;background:${r.color}` }), document.createTextNode(r.label)]),
+      el("td", { text: fmt(r.m.carry) }), el("td", { text: fmt(r.m.apex) }), el("td", { text: fmt(r.m.land) }),
+      el("td", { text: r.m.lateral === 0 ? "0.0" : `${r.m.lateral > 0 ? "R" : "L"} ${fmt(Math.abs(r.m.lateral))}` }), el("td", { text: fmt(r.m.time) })]));
+    t.append(tb);
+    panel.append(el("div", { style: "display:grid;gap:8px;padding-top:6px;border-top:1px solid var(--line)" }, [
+      el("h2", { text: s.title }), el("p", { class: "note", text: s.note }),
+      el("div", { class: "charts" }, [side.svg, top ? top.svg : null]),
+      el("div", { class: "table-wrap" }, [t])]));
+  }
+  document.getElementById("fly").addEventListener("click", () => fly(all));
+}
+
+function renderCourse() {
+  const panel = document.getElementById("panel");
+  panel.replaceChildren();
+  const C = DATA.course;
+  if (!C) { panel.append(el("p", { class: "note", text: "The fixtures weren't mounted when this page was built, so there is no course view." })); return; }
+  const classColor = (id) => ({ 1: "#4f9a3c", 2: "#64a84a", 3: "#79b85a", 4: "#6fae52", 5: "#7aa94e", 6: "#6a9844", 7: "#b5ad6a", 8: "#d9c79a", 9: "#3f7da3", 10: "#b8ac96", 11: "#8f6e47", 12: "#9a9a5d", 13: "#a39890", 15: "#e8d9ae", 16: "#a8ad66" }[id] || "#888");
+  panel.append(el("div", { class: "panel-head" }, [el("h2", { text: `${C.course} · hole ${C.hole} · par ${C.par} · ${fmt(C.length_yd, 0)} yd` }), el("button", { class: "btn", type: "button", id: "fly", text: "Fly" })]));
+  panel.append(el("p", { class: "note", text: `Shots from the ${C.tee} tee towards its aim point, flown over the real ground (the bicubic height function, 0.5 m tier). The strip under the ground is the surface class along the aim line. The flight stops at first contact; bounce and roll come in M3.` }));
+  const rows = C.shots.map((s, i) => ({ label: s.label, color: trajColor(i, C.shots.length), path: s.path, s }));
+  const side = sideView(rows, { height: 320, terrain: C.profile, classColor, aria: "Shots over the hole's terrain" });
+  const top = topView(rows, { height: 120 });
+  const all = [...side.groups, ...top.groups];
+  panel.append(el("div", { class: "charts" }, [el("div", { class: "chart-label", text: "Side view, over the ground" }), side.svg, el("div", { class: "chart-label", text: "Top view" }), top.svg]));
+  const seen = [...new Set(C.profile.map(p => p[2]))];
+  const k = el("div", { class: "keys" });
+  for (const id of seen) k.append(el("span", {}, [el("i", { style: `width:16px;height:6px;background:${classColor(id)}` }), document.createTextNode(C.classes[id] || id)]));
+  panel.append(k);
+  const t = el("table");
+  t.append(el("thead", {}, [el("tr", {}, ["Shot", "Carry", "First lands on", "Height at landing vs tee"].map(h => el("th", { text: h })))]));
+  const tb = el("tbody");
+  for (const r of rows) tb.append(el("tr", {}, [
+    el("td", {}, [el("span", { style: `display:inline-block;width:12px;height:3px;margin-right:6px;vertical-align:middle;background:${r.color}` }), document.createTextNode(r.label)]),
+    el("td", { text: fmt(r.s.carry) }), el("td", { text: r.s.lands_on }), el("td", { text: `${r.s.drop >= 0 ? "+" : ""}${fmt(r.s.drop)}` })]));
+  t.append(tb);
+  panel.append(el("div", { class: "table-wrap" }, [t]));
+  document.getElementById("fly").addEventListener("click", () => fly(all));
+}
+
+/* ---------- boot ---------- */
+function boot() {
+  const S = DATA.summary;
+  const st = document.getElementById("status");
+  st.append(el("span", { class: `chip ${S.worst_fit_err <= 3 ? "good" : "warn"}` }, [el("i", { class: "dot" }), document.createTextNode(`${S.within3} / ${S.fit_rows} TrackMan rows within ±3 % carry · worst ${S.worst_fit_err} %`)]));
+  st.append(el("span", { class: `chip ${S.sniff_pass === S.sniff_rows ? "good" : "bad"}` }, [el("i", { class: "dot" }), document.createTextNode(`${S.sniff_pass} / ${S.sniff_rows} handicap sniff tests in band`)]));
+  const a = DATA.aero;
+  st.append(el("span", { class: "chip plain", text: `Cd ${fmt(a.cd0, 3)} + ${fmt(a.cd_s, 2)}S ${a.cd_s2 < 0 ? "−" : "+"} ${fmt(Math.abs(a.cd_s2), 2)}S² · Cl max ${fmt(a.cl_max, 2)} · spin decay ${fmt(a.spin_decay_per_m * 60 * 100, 1)} %/s at 60 m/s` }));
+  const tabs = document.getElementById("tabs");
+  const views = DATA.groups.map(g => ({ id: g.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"), name: g.name.replace("Handicap sniff tests", "Handicaps"), run: () => renderGroup(g) }));
+  views.push({ id: "shapes", name: "Shape checks", run: renderShapes });
+  views.push({ id: "course", name: "On a course", run: renderCourse });
+  let current = null;
+  const select = (v) => {
+    current = v;
+    tabs.querySelectorAll("button").forEach(b => b.setAttribute("aria-selected", b.dataset.id === v.id));
+    v.run();
+    try { localStorage.setItem("flightlab-tab", v.id); } catch (e) {}
+  };
+  for (const v of views) {
+    const b = el("button", { role: "tab", type: "button", "data-id": v.id, "aria-selected": "false", text: v.name });
+    b.addEventListener("click", () => select(v));
+    tabs.append(b);
+  }
+  let start = views[0];
+  const hash = location.hash.slice(1);
+  let saved = null; try { saved = localStorage.getItem("flightlab-tab"); } catch (e) {}
+  start = views.find(v => v.id === hash) || views.find(v => v.id === saved) || start;
+  select(start);
+  // chart colours are read from the theme tokens when drawn: redraw when the theme changes
+  const redraw = () => { if (current) current.run(); };
+  try { window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", redraw); } catch (e) {}
+  new MutationObserver(redraw).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+}
+boot();
+</script>
