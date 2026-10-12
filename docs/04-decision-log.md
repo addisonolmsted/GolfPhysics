@@ -8,6 +8,8 @@ to what a step consumes or produces does.
 
 | # | Date | Decision | Status | Who / where |
 |---|---|---|---|---|
+| D40 | 2026-10-12 | No club is forbidden or special-cased. Odd choices (a putter from the rough) play out through the speed curve, the impact and lie model and the normal assist rules; putting help applies only on or right next to the green. | proposed | [assists](gameplay/assists.md#unusual-club-choices-proposed-2026-10-12) |
+| D39 | 2026-10-12 | Putting: no casual lift (stroke length sets pace); target the cup; leave holes and good lags alone; otherwise pace first (to ~0.4 m past), then line, each by a fraction with its own knee. Misreads get partial help only. | proposed | [assists](gameplay/assists.md#putting-proposed-2026-10-12) |
 | D38 | 2026-10-12 | Swing data: the team builds a small data-collection app and starts with a 6-10 person sample, in parallel with M3. | decided | owner, 2026-10-12 |
 | D37 | 2026-10-12 | Keep the M2b fit (a tailwind never shortens a shot; driver hang 6.8 s). Accepted deviations: PGA driver carry -3.6 %, the 10 handicap sniff row 1.5 yd under its band. Iron curve per degree is left to M4's face/path calibration. | decided | owner, 2026-10-12; [flight](models/flight.md#m2b-time-curve-and-wind-2026-10-12) |
 | D36 | 2026-10-12 | The boost scales with swing fullness (backswing length, tempo), not speed: a slow full swing is lifted, a short deliberate swing is not. Club loft does the rest. Fallback if the M5 corpus can't separate them: the phone's shot-type selector. | principle decided, signal to be proven in M5 | owner question 2026-10-12; [assists](gameplay/assists.md#touch-shot-or-slow-full-swing) |

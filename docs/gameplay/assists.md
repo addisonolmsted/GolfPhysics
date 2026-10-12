@@ -211,10 +211,86 @@ Per shot, using the course and the round state:
 **Cost:** 2-6 simulations per shot, about 1-2 ms. The CPU budget rises from 2 ms to about 3 ms p99, which is still
 nothing next to the network ([02](../02-latency-budget.md)).
 
-## Putting
+## Putting (*proposed*, 2026-10-12)
 
-The same machinery with the cup as the target: pace first, then line. The effective cup can be a little wider on
-the one assist configuration. Same principles: help depends on the stroke and the situation, not on the player.
+Putting uses the same principles (fairness, hidden, one configuration, correct towards the target) with three
+differences: there is no baseline to lift to, pace matters more than line, and the green's slope is part of the
+player's decision.
+
+### The stroke
+
+- **No casual lift.** A putt has no "normal distance": 1 m and 20 m putts are both normal. The putter's speed curve
+  is about proportional across its whole range (the partial region of the speed curve, stretched), so a longer,
+  faster stroke rolls further for everyone in a predictable way.
+- **Stroke length is the pace input.** Real golfers set pace with backswing length at a steady tempo. The phone
+  already measures both (`top_angle_rad`, the timing), so the putter mapping weights backswing length alongside
+  speed. A long, smooth stroke and a short, jabbed one at the same peak speed don't have to roll the same.
+- **Line is the face.** For a putter, start direction is ~85-90 % face angle (D-plane, M4), so the phone's rotation
+  about the shaft at impact sets the line.
+- **The read is the player's.** The aim on the phone's green view is where the player starts the ball, so aiming
+  outside the hole to play break is the player's skill.
+
+### P: Pace and line correction
+
+On the green (and the fringe within a few metres of it), the target is **the cup**:
+
+1. **Simulate the raw putt** over the green with the ground model (M3): slope, stimp, cup capture.
+2. **Holed, or a good lag: no correction.** A good lag finishes within a zone that scales with length (for example
+   within ~5 % of the putt's length, at least 0.3 m). A well-struck long putt is left alone even if it misses.
+3. **Otherwise find the smallest fix**, pace first:
+   - **Pace:** the speed that would finish **~0.4 m past the hole** on the line played, not dead weight. That's the
+     speed with the best chance of dropping and a short comebacker if it doesn't. Secant search on ball speed with
+     the full roll simulation.
+   - **Line:** at that speed, the start direction that holes it, by a search on the face angle. This one depends on
+     the break, so it needs the roll simulation too.
+4. **Apply a fraction** of each fix, with its own knee:
+
+| Factor | Pace help | Line help |
+|---|---|---|
+| Short putt (< ~1.5 m) | high | **high**: short putts drop often, without being automatic |
+| Mid putt (1.5-6 m) | medium | medium, more for small misses than big ones |
+| Long putt (> ~6 m) | **high**: a casual player should two-putt most long putts | low: holing long putts stays rare |
+| A misread | | **partial**: aiming straight at a big-breaking putt gets some help, not a corrected read. Reading greens stays a skill. |
+| Error size | the knee again: a putt hit twice as hard as needed keeps most of its error | same |
+
+5. **The cup** can be a little more forgiving than real in the one configuration (capture speed and width), logged
+   like every other assist.
+
+**Cost:** each roll simulation on a green is short (a few seconds of roll); pace and line searches together are
+about 6-10 rolls, ~1-2 ms. Within budget.
+
+**Why pace first:** missing pace leaves a long second putt whatever the line, while a good-paced putt slightly off
+line leaves a tap-in. Pace help raises the casual floor most, which is the point of the assists.
+
+## Unusual club choices (*proposed*, 2026-10-12)
+
+The engine never forbids a club. Golf allows a putter from anywhere, and some odd choices are good golf (putting
+from the fairway short of a green, the "Texas wedge"; a long iron punched under trees). The physics, the lie and the
+assists decide how it turns out, with nothing special-cased.
+
+**Example: a full swing with a putter from 100 yd off the fairway** (in rough or fescue):
+
+1. **Speed curve.** A full backswing with a putter selected is a full swing (fullness 1). The putter's curve has no
+   casual lift and an early taper, with its knee around the speed of a long lag putt, so a full-speed swing gives a
+   real but capped putter strike: a fast, low ball, not a drive.
+2. **Impact.** The putter has 3-4° of loft and a face built for rolling, so the ball launches very low with little
+   backspin. The lie hurts it most: grass between face and ball cuts the ball speed (the rough and fescue
+   `speed_factor`, [impact.md](../models/impact.md#lie)), and a putter can't get under it.
+3. **Flight and ground.** It flies a few metres, then bounces and rolls through rough, which has 4-5 times a
+   fairway's rolling resistance and grabs a low, skidding ball fast. **Expected result: it moves 10-30 yd and stays
+   in the rough.** Exact numbers come with M3 (roll) and M4 (putter impact).
+4. **Assists:**
+   - **Putting help (P) doesn't apply:** it only works on and right next to the green.
+   - **Speed lift (S) doesn't apply:** the putter has no casual lift.
+   - **Target correction (T):** the inferred target is the reachable good ground on the aim line (D26). With a
+     putter's short reach from rough, nothing reachable usually qualifies, so only direction is corrected, and the
+     rough's lie factor keeps even that small.
+   - **Net:** it plays out like real golf. A poor choice, gently handled, never rescued.
+5. **The same swing from the fairway 10 yd short of a green** is the Texas wedge. The ball skids and rolls on short
+   grass, the green is the inferred target, and target correction helps pace as for any approach. A sensible shot
+   gets a sensible result.
+
+The game layer may still warn about an odd choice ("putter from the rough?"), but that's UI, not physics.
 
 ## What the phone should send for this
 
