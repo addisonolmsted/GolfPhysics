@@ -68,7 +68,13 @@ decided).
   within the tolerances in [03](docs/03-success-indicators.md), across driver to wedge. Carry, apex and landing
   angle are fitted together, never carry alone (a lesson from GolfEngine).
 
-### M3: Ground (`next`)
+### M2b: Flight follow-up (`next`)
+
+From the owner's review: add driver hang time (6.1-6.3 s on tour), curve per degree of spin axis (~0.7 % of carry),
+the published 7-iron wind pair and "a tailwind never shortens a full shot" as fit targets and tests; bound the drag
+speed term below the fitted range; refit. Details: [flight.md](docs/models/flight.md#follow-up-review-2026-10-12-time-curve-and-wind).
+
+### M3: Ground (`queued`)
 
 `golf-ground`: bounce (velocity-dependent restitution, turf tilt, grip/slip impulse with spin), the slide-to-roll
 switch, rolling resistance, slope gravity, putting, cup capture, water entry, plugging in sand.

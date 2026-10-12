@@ -58,25 +58,71 @@ phone payload ─▶ golf-swing ─▶ raw delivery ──▶ S  speed curve: ph
 
 ## S: The speed curve (replaces per-player calibration)
 
-One mapping from the phone's speed index to club head speed, the same for every player (per club, per shot type).
-It has three bands:
+One mapping from the phone's swing to club head speed, the same for every player (per club). It takes **two
+inputs**: the speed index, and **how full the swing was** (backswing length and tempo; see
+[Touch shot or slow full swing?](#touch-shot-or-slow-full-swing)). The curve is S-shaped: lifted at the bottom,
+honest in the middle, tapered at the top (owner, 2026-10-12).
 
-| Band | Swing | Mapping |
+| Region | Swing | Mapping |
 |---|---|---|
-| **Control** | Partial swings: short backswings, chips | About proportional. A half swing gives about half the full-swing speed, so touch shots work the same for everyone. |
-| **Casual** | A normal, smooth full swing, the speed most people produce without trying hard | **Lifted:** this band maps to the club's **baseline speed**, the head speed that gives the club's baseline carry (below). The slope through it is shallower, so a slightly harder or softer swing changes distance a little, not a lot. |
-| **Power** | Faster than a smooth swing | **Steep and unassisted:** rises towards tour speeds (about 113 mph with a driver) and past them to a cap. Every extra bit of speed shows up as distance. |
+| **Partial** | A short backswing: pitches, chips, touch shots | **No lift**, about proportional to speed. A half swing gives about half the full-swing speed, for everyone. |
+| **Casual** | A full backswing at the speed most people make without trying hard | **Lifted** to the club's **baseline speed**, the head speed that gives the club's baseline carry (below). The slope is shallow, so a slightly harder or softer swing changes distance a little. |
+| **Honest** | Faster full swings, up to about tour speed for the club | The lift fades out; output follows input about one-for-one. |
+| **Tapered** | Faster than tour speed for the club | **Slowly growing** (decided, owner 2026-10-12): above a knee (about the club's tour-average speed: driver ~113 mph, 7 iron ~90 mph), the output grows like a logarithm of the excess. More speed always gives more distance, but a phone flick that would map to a 150 mph driver gives a long-drive speed, not a world record. Here the curve *lowers* the head speed below a straight-line mapping. |
 
-- **Monotonic, never flat.** Swinging harder always goes further, in every band.
+A shape for the taper (constants from the M5 swing corpus and M7 playtests):
+
+```
+above the knee K:  V_out = K + T ln(1 + (V_in - K) / T)
+```
+
+`T` sets how fast it flattens. With K = 113 mph and T = 15 mph, an input of 125 maps to about 122, 140 to about 128,
+and 160 to about 134. The slope is 1 at the knee (no kink) and falls towards 0, but never reaches it.
+
+- **Monotonic, never flat.** Swinging harder always goes further, in every region.
 - **Gapping stays.** The curve gives a head speed and the club's loft does the rest, so a casual 7-iron still goes
   shorter than a casual 5-iron, and club choice stays a real decision.
-- **Backswing length is part of the input** (`top_angle_rad`, tempo). A deliberate three-quarter swing is a
-  different input from a slow full swing, so it may give a different result without breaking fairness.
 - **Baseline carry per club:** see the next section.
 - **Device normalisation only.** If phone models measure differently (sensor ranges, weight), a per-model
   correction is applied. That corrects the device, not the person.
-- **Where the band edges come from:** the M5 swing corpus, which must include casual and skilled swingers. The
-  casual band is centred on what casual players produce when told "make a normal swing".
+- **Where the region edges come from:** the M5 swing corpus, which must include casual and skilled swingers. The
+  casual region is centred on what casual players produce when told "make a normal swing".
+
+## Touch shot or slow full swing?
+
+The same phone speed can mean two different things (owner's question, 2026-10-12): a casual player's **full** swing
+(boost it to the club's baseline) or a good player's **deliberate soft** swing (leave it soft). Speed alone can't
+tell them apart, and the fairness rule forbids asking who the player is. The swing itself has to say.
+
+**The signal is how full the swing is, not how fast.** The phone already measures the backswing (the swing angle
+at the top, `top_angle_rad` in P1) and the tempo (address → top → impact times):
+
+| Swing | Backswing | Speed | Region |
+|---|---|---|---|
+| Casual player, normal full swing | full | slow | **Casual**: lifted to the baseline |
+| Good player, soft full swing | full | slow | **Casual**: the same as the casual player (fair) |
+| Good player, half-swing pitch | short | slow-ish, but brisk *for its length* | **Partial**: no lift |
+| Casual player, half-swing pitch | short | slow | **Partial**: no lift, so it comes up short |
+
+The boost scales with **fullness**, a 0-1 number from backswing length (and, if the corpus shows it helps, the ratio
+of speed to backswing length). A full backswing gets the full lift and a half backswing almost none, with a smooth
+ramp between them so there's no cliff.
+
+**Club choice does the rest.** Two players 80 yd out, one with a 60° wedge and one with a pitching wedge:
+
+| Swing | 60° wedge (baseline ~60-65 yd) | Pitching wedge (baseline ~105 yd) |
+|---|---|---|
+| Full, slow (casual) | lifted to ~62 yd: **18 yd short**. Target correction helps only part way (a big miss keeps most of its size), so it's short. | lifted to ~105 yd: **25 yd long**, the same. |
+| Half backswing, crisp | ~45-55 yd, short | ~75-85 yd: **on the number**, untouched |
+| Full, hard | ~75-80 yd, high and soft | 115+ yd, long |
+
+So at 80 yd a casual player's right play is a full swing with a gap or sand wedge, and a good player's options
+include a crisp half pitching wedge. Both work, which is the strategic game we want. The 60° and the PW never act the
+same, because physics gives them different launch, spin and carry from the same head speed.
+
+**If the corpus can't separate them** (casual full swings and skilled half swings overlapping in backswing length),
+the fallback is the phone's shot-type selector (full / pitch / chip, already in P1), defaulting to "full". That's an
+extra input, so only if needed.
 
 ## Baseline carry (called "floor carry" in the first draft)
 

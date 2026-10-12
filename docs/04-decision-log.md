@@ -8,6 +8,8 @@ to what a step consumes or produces does.
 
 | # | Date | Decision | Status | Who / where |
 |---|---|---|---|---|
+| D36 | 2026-10-12 | The boost scales with swing fullness (backswing length, tempo), not speed: a slow full swing is lifted, a short deliberate swing is not. Club loft does the rest. Fallback if the M5 corpus can't separate them: the phone's shot-type selector. | principle decided, signal to be proven in M5 | owner question 2026-10-12; [assists](gameplay/assists.md#touch-shot-or-slow-full-swing) |
+| D35 | 2026-10-12 | The speed curve tapers above about tour speed per club: monotonic but slowly growing (logarithmic shape), so very fast swings give realistic distances. | decided | owner, 2026-10-12; [assists](gameplay/assists.md#s-the-speed-curve-replaces-per-player-calibration) |
 | D34 | 2026-10-12 | Flight steps at a fixed 10 ms (was 1 ms), with the wind taken at each RK4 stage's height. 4th order: under 0.03 mm from a 0.25 ms reference; 0.29 ms per flight. | decided (by measurement, M2) | [flight](models/flight.md#integration) |
 | D33 | 2026-10-12 | The flight is calibrated on tour **and** amateur data, with never-fitted handicap sniff tests as part of the gate; a sniff band moves only with a recorded reason. | decided | owner, 2026-10-12; [03](03-success-indicators.md#1-launch-monitor-targets-flight-m2-impact-m4) |
 | D32 | 2026-10-12 | Drag has an empirical air-speed term, not a Reynolds-number term: the Reynolds form cancelled half the altitude gain (Denver +2.3 % against ~5 % measured). | decided (by measurement, M2) | [flight](models/flight.md#coefficients-fitted-m2) |

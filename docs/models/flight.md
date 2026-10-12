@@ -104,6 +104,44 @@ band. Two corrections were made on 2026-10-12, both recorded in the file:
 richer spin decay or a lift that depends on speed. It isn't worth the parameters until the apex and landing columns
 are verified. A steeper landing also means a little less roll (M3), which feel tuning will catch first (D21).
 
+### Follow-up review (2026-10-12): time, curve and wind
+
+The owner asked whether flight time, curve and wind are right, beyond carry and shape. Measured with
+`golf-lab/examples/flight_checks.rs`:
+
+| Shot | Carry | Time | Curve per 1° axis | 10 mph into / down | 20 mph into / down | 10 mph cross drift |
+|---|---|---|---|---|---|---|
+| PGA driver | 270 | 6.9 s | 2.0 yd | -18 / +13 | -41 / +21 | 17.7 yd |
+| PGA 7 iron | 167 | 6.3 s | 1.6 yd | -19 / +12 | -45 / +18 | 15.6 yd |
+| PGA PW | 134 | 5.9 s | 1.2 yd | -18 / +12 | -42 / +20 | 13.3 yd |
+| Amateur driver | 200 | 5.9 s | 1.5 yd | -11 / +6 | -28 / +8 | 12.7 yd |
+| Amateur 7 iron | 143 | 5.5 s | 1.2 yd | -12 / +7 | -31 / +9 | 11.6 yd |
+| 70 mph driver | 123 | 4.0 s | 0.6 yd | -2 / **-1** | -7 / **-3** | 5.8 yd |
+
+Against published figures:
+
+- **Headwind and tailwind: good.** Golf Digest's wind analysis: a tour 7 iron (166 yd) loses 17 into 10 mph and
+  gains 13 down; the model gives -19 / +12. Andrew Rice's rule (about 1 yd per mph into, half that down; about 20 %
+  + 5 yd into 20 mph) matches the amateur rows.
+- **Flight time: drivers ~10 % long.** The PGA Tour driver hang time has averaged 6.1-6.3 s for years (Golf
+  Digest); the model gives 6.9 s. It's the same residual as the high apex and steep landing. No measured iron or
+  amateur hang times were found.
+- **Curve: drivers right, irons ~30-40 % too much.** TrackMan's rule is about 0.7 % of carry per degree of spin
+  axis (5° ≈ 3.5 yd per 100 yd; 10° ≈ 11 yd at 150, 15 yd at 200). That is ~1.9 yd/° for a 270 yd drive (model 2.0)
+  and ~1.2 yd/° for a 167 yd 7 iron (model 1.6).
+- **Crosswind: plausible, maybe high.** Drift comes from the time in the air, so the long hang time inflates it.
+  Golfers' rule of thumb is 5-10 yd per 10 mph, but that refers to the wind they feel at head height, which is
+  about 60 % of the 10 m wind the model takes. Converted, the model's ~16 yd for a tour 7 iron corresponds to
+  ~10 yd per 10 mph of felt wind, at the top of the rule's range. **Decision needed:** the game should state which
+  wind it shows (recommended: the 10 m wind, like weather reports, with the profile doing the rest).
+- **A slow, low-spin ball loses carry downwind: wrong.** The empirical speed term in the drag raises the drag
+  coefficient as air speed falls, which cancels a tailwind's benefit for slow balls. It is fitted only above
+  ~38 m/s launch speed and extrapolates below.
+
+**Next (M2b, before M3):** add these as fit targets and checks: driver hang time 6.2 s, curve per degree ≈ 0.7 % of
+carry, the Golf Digest 7-iron wind pair, and "a tailwind never shortens a full shot". Bound the speed term below the
+fitted range. Then refit and re-check everything above.
+
 ### Re-running
 
 ```sh
