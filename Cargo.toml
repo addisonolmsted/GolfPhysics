@@ -1,0 +1,42 @@
+[workspace]
+resolver = "2"
+members = [
+    # Shared types, units, frame, deterministic math. Everything depends on it.
+    "crates/golf-core",
+    # Loads a C0 course bundle and answers spatial queries (height, normal, surface, trees, rules).
+    "crates/golf-course",
+    # Phone payload -> club delivery (the controller's kinematics become a swing).
+    "crates/golf-swing",
+    # Club delivery + club + lie -> launch conditions.
+    "crates/golf-impact",
+    # Launch conditions -> airborne trajectory (aero, wind, tree contact).
+    "crates/golf-flight",
+    # Bounce, roll, putting, cup capture, rest.
+    "crates/golf-ground",
+    # Gameplay assists: boost and correction in delivery / launch space.
+    "crates/golf-assist",
+    # The one entry point: ShotRequest -> ShotResult. Orchestrates the stages above.
+    "crates/golf-shot",
+    # Network service: course cache, sessions, the phone and display connections.
+    "crates/golf-server",
+    # Offline tooling: fixture smoke tests, calibration sweeps, trajectory plots, swing replay.
+    "crates/golf-lab",
+]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+
+[workspace.dependencies]
+golf-core = { path = "crates/golf-core" }
+golf-course = { path = "crates/golf-course" }
+golf-swing = { path = "crates/golf-swing" }
+golf-impact = { path = "crates/golf-impact" }
+golf-flight = { path = "crates/golf-flight" }
+golf-ground = { path = "crates/golf-ground" }
+golf-assist = { path = "crates/golf-assist" }
+golf-shot = { path = "crates/golf-shot" }
+
+[profile.release]
+debug = 1

@@ -1,0 +1,7 @@
+# Build and data output.
+target/
+out/
+.DS_Store
+.claude/
+# Course fixtures are referenced in place (fixtures/README.md), never committed.
+fixtures/*/
