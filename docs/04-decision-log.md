@@ -8,6 +8,7 @@ to what a step consumes or produces does.
 
 | # | Date | Decision | Status | Who / where |
 |---|---|---|---|---|
+| D41 | 2026-10-13 | SwingLab keeps sessions on the phone and exports them as a .zip (AirDrop, Files), because the free personal team can't use iCloud. The CloudKit code stays behind a compile switch for a paid team. | decided | owner, 2026-10-13; [data-collection](data-collection.md#getting-the-data-off-the-phone-d41) |
 | D40 | 2026-10-12 | No club is forbidden or special-cased. Odd choices (a putter from the rough) play out through the speed curve, the impact and lie model and the normal assist rules; putting help applies only on or right next to the green. | proposed | [assists](gameplay/assists.md#unusual-club-choices-proposed-2026-10-12) |
 | D39 | 2026-10-12 | Putting: no casual lift (stroke length sets pace); target the cup; leave holes and good lags alone; otherwise pace first (to ~0.4 m past), then line, each by a fraction with its own knee. Misreads get partial help only. | proposed | [assists](gameplay/assists.md#putting-proposed-2026-10-12) |
 | D38 | 2026-10-12 | Swing data: the team builds a small data-collection app and starts with a 6-10 person sample, in parallel with M3. | decided | owner, 2026-10-12 |

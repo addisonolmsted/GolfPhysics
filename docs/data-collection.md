@@ -2,9 +2,11 @@
 
 The first swing dataset: real people swinging a phone, labelled by what they were asked to do. It feeds M5 (the swing
 input contract and the universal speed curve), and checks two M2b open items: hang time, and how often phones
-saturate. Status: **v1 built, 2026-10-12** (SwingApp repo, branch `swinglab`, target `SwingLab`; compiles and runs in the
-Simulator; recording needs a phone). Owner decisions: D38 (a small app and a 6-10 person sample, in
-parallel with M3), CloudKit public database, a new target inside SwingApp, the highest sample rate the phone gives.
+saturate. Status: **v1 built, 2026-10-13** (SwingApp repo, branch `swinglab`, target `SwingLab`). It compiles for the
+Simulator and the phone, and every screen and the export were checked in the Simulator; recording needs a phone. Owner decisions: D38 (a small app and a 6-10 person sample, in
+parallel with M3), a new target inside SwingApp, the highest sample rate the phone gives. CloudKit was chosen, then
+set aside: the team is a free personal team, which can't use iCloud (D41). Sessions stay on the phone and leave by
+Export.
 
 ## What the data must answer
 
@@ -25,8 +27,8 @@ pointing-down check are shared with SwingApp through `SwingApp/Shared/`, so dete
 
 ### Flow
 
-1. **Home:** statistics (sessions, participants, swings by type, this phone and every phone), the upload queue, and
-   **New session**.
+1. **Home:** statistics for this phone, **Export** (new sessions, all sessions, or one session), and **New
+   session**.
 2. **Consent:** an adult (18+), motion data only, an anonymous participant code, wrist strap on, clear space.
    Handedness here, because it sets the swing direction.
 3. **How to hold it:** like a club grip, the top of the phone pointing at the ground, the screen facing the target.
@@ -40,8 +42,7 @@ pointing-down check are shared with SwingApp through `SwingApp/Shared/`, so dete
    - **Result:** the swing is kept, with **Delete previous** available. A deleted swing is kept as *discarded*, never
      erased, so false triggers can be studied.
 5. **Survey** (golf experience, handicap, age band, height, optional launch-monitor numbers).
-6. **Review and save:** confirm, write locally, upload to CloudKit. If the upload fails, the session waits in the
-   queue and retries.
+6. **Review and save:** confirm and save on the phone, then **Export now** or later from Home.
 
 ### Detection
 
@@ -82,23 +83,32 @@ deliver 100 Hz):
 
 The header gives both row counts, so a reader needs no other context. A 4 s swing is about 60 KB.
 
-### CloudKit
+### Getting the data off the phone (D41)
 
-Container `iCloud.Davis-Test-Group.SwingLab`, public database:
+**Export** builds one `.zip`:
+- `<session id>/session.json`: the session, the survey, and every swing's quality and markers;
+- `<session id>/swings/*.slab`: one file per swing, discarded swings included.
+
+The share sheet sends it by AirDrop to the Mac, to Files or by Mail; exported sessions get a tick on Home. The app's
+folder is also visible in the Files app (On My iPhone › SwingLab) and in Finder when the phone is plugged in.
+
+**Free-team limits:** an app installed from a free team stops opening after 7 days; re-run it from Xcode to renew it
+(the sessions on the phone are kept). There's no TestFlight, so participants use the team's phone.
+
+**CloudKit, for later (needs a paid Apple Developer team):** the code is in the app behind the `SWINGLAB_CLOUDKIT`
+compilation condition, with the entitlements in `SwingLabSupport/SwingLab.cloudkit.entitlements`. The plan for it:
 
 | Record type | Fields |
 |---|---|
 | `Session` | sessionId, participantCode, createdAt, protocolId, protocolVersion, appVersion, deviceModel, osVersion, handedness, hold, survey (JSON), nKept, nDiscarded, nPractice |
 | `Swing` | session (reference), sessionId, blockId, kind, attempt, status (kept, discarded, practice), header (JSON), data (asset: the `.slab` file) |
 
-No names or contact details are stored; the participant code is random.
+Its setup:
+1. Enable iCloud (CloudKit) on the SwingLab target with the container `iCloud.Davis-Test-Group.SwingLab`.
+2. Add queryable indexes on `recordName` for `Session` and `Swing` in the CloudKit Console.
+3. Deploy the schema to production before TestFlight.
 
-**One-time setup:**
-1. In Xcode, open the SwingLab target → Signing & Capabilities → confirm the team → check that the iCloud capability
-   lists the container. If Xcode asks, let it register the container.
-2. In the CloudKit Console (development environment), add **queryable** indexes on `recordName` for `Session` and
-   `Swing`, so the statistics screen can list them.
-3. Before a TestFlight build: **Deploy Schema to Production** in the CloudKit Console.
+No names or contact details are stored either way; the participant code is random.
 
 ## Protocol v1 (about 15 minutes, 41 swings)
 
