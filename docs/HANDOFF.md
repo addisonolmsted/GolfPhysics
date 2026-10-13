@@ -29,9 +29,14 @@ Updated 2026-10-11. Read this first when picking the work up in a new session.
   every 7 days. Its launch-monitor sessions should also record hang time, apex and landing angle (M2b's open items).
 - **Beta plan:** [06-beta-plan.md](06-beta-plan.md) (2026-10-13). Eight owner decisions listed there, the first being
   the paid Apple Developer Program (TestFlight).
-- **Next: M3, ground.** Bounce, roll, putting, the patch cache, our material file.
-- **Carry into M3:** a patch cache for the height function (a 20k-step roll costs ~0.8 ms against a 0.5 ms
-  budget), and our material override file.
+- **`main`** has M0-M2b (fast-forwarded 2026-10-13).
+- **M3 done** (2026-10-13) on branch `m3-ground`: `golf-ground` (bounce, slide, roll, putting, cup, water, plugging;
+  `data/materials/physics.v1.json`). All gates met; 0.52-0.59 ms per whole shot. The viewer has a "Bounce and roll"
+  tab, and the course tab now plays whole shots.
+- **Next: M4, impact and clubs** (D-plane, the club table, lie effects, the per-club face/path → curve
+  calibration).
+- **Carry into M7:** speed for the putting assist (6-10 putts per stroke at ~0.47 ms each): a patch cache or a
+  longer roll step on smooth greens.
 
 ## Owner decisions waiting
 

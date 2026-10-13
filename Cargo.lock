@@ -271,6 +271,9 @@ version = "0.0.0"
 dependencies = [
  "golf-core",
  "golf-course",
+ "golf-flight",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -288,6 +291,7 @@ dependencies = [
  "golf-core",
  "golf-course",
  "golf-flight",
+ "golf-ground",
  "golf-shot",
  "libm",
  "serde",

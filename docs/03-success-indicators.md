@@ -68,6 +68,9 @@ without a recorded reason in the reference file.
 
 ## 2. Ground (M3)
 
+Results: [ground.md](models/ground.md#results-2026-10-13), all met (2026-10-13). The driver roll target became
+TrackMan's own number: the amateur driver's carry 204 and total 226 yd, 22 yd of roll.
+
 | Test | Pass |
 |---|---|
 | Stimp | Ball at 1.83 m/s on a flat green of stimp S (feet) rolls S × 0.3048 m ±3 % |

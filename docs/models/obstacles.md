@@ -56,7 +56,7 @@ The ball usually ends up on the woods floor (class 11) not far inside the edge, 
 
 ## Flagstick
 
-See [ground.md](ground.md#cup-and-flagstick). In flight, it is tested in the last few metres around the pin.
+See [ground.md](ground.md#the-cup). In flight, it is tested in the last few metres around the pin.
 
 ## Lips and walls (when `edges.json` exists)
 

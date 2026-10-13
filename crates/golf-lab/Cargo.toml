@@ -9,6 +9,7 @@ golf-core = { workspace = true }
 golf-course = { workspace = true }
 golf-shot = { workspace = true }
 golf-flight = { workspace = true }
+golf-ground = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 libm = { workspace = true }

@@ -95,7 +95,7 @@ footer code { font-family: var(--mono); font-size: 0.8rem; }
 <div class="wrap">
   <header>
     <h1>Ball Flight Lab</h1>
-    <p class="lede">The GolfPhysics flight model (M2) against TrackMan tour and amateur data, handicap sniff tests and physical shape checks. Every shot is flown by the engine on flat ground in TrackMan's normalised air (sea level, 75 °F, 75 % humidity), no wind unless stated.</p>
+    <p class="lede">The GolfPhysics ball model (flight M2, ground M3) against TrackMan tour and amateur data, handicap sniff tests and physical shape checks. Every shot is flown by the engine on flat ground in TrackMan's normalised air (sea level, 75 °F, 75 % humidity), no wind unless stated.</p>
     <div class="status" id="status"></div>
   </header>
   <nav role="tablist" id="tabs" aria-label="Data sets"></nav>
@@ -365,6 +365,34 @@ function renderShapes() {
   document.getElementById("fly").addEventListener("click", () => fly(all));
 }
 
+function renderGround() {
+  const panel = document.getElementById("panel");
+  panel.replaceChildren();
+  const G = DATA.ground;
+  panel.append(el("div", { class: "panel-head" }, [el("h2", { text: G.title }), el("button", { class: "btn", type: "button", id: "fly", text: "Fly" })]));
+  panel.append(el("p", { class: "note", text: G.note }));
+  const rows = G.rows.map((r, i) => ({ label: `${r.label} → ${r.surface}`, color: trajColor(i, G.rows.length), path: r.model.path, m: r.model, r }));
+  const side = sideView(rows, { height: 300, aria: "Landing, bounce and roll" });
+  const all = [...side.groups];
+  panel.append(el("div", { class: "charts" }, [el("div", { class: "chart-label", text: "Side view: flight, bounces and roll" }), side.svg]));
+  const t = el("table");
+  t.append(el("thead", {}, [el("tr", {}, ["Shot", "Lands on", "Carry", "Roll", "Total", "Bounces", "Ends", "Time s"].map(h => el("th", { text: h })))]));
+  const tb = el("tbody");
+  const trs = [];
+  rows.forEach((r, i) => {
+    const tr = el("tr", {}, [
+      el("td", {}, [el("span", { style: `display:inline-block;width:12px;height:3px;margin-right:6px;vertical-align:middle;background:${r.color}` }), document.createTextNode(r.r.label)]),
+      el("td", { text: r.r.surface }), el("td", { text: fmt(r.m.carry) }), el("td", { text: `${r.m.roll >= 0 ? "+" : ""}${fmt(r.m.roll)}` }),
+      el("td", { text: fmt(r.m.total) }), el("td", { text: String(r.m.bounces) }), el("td", { text: r.m.state === "OnGround" ? "at rest" : r.m.state.toLowerCase() }), el("td", { text: fmt(r.m.time) })]);
+    tr.addEventListener("mouseenter", () => highlight(all, trs, i));
+    tr.addEventListener("mouseleave", () => highlight(all, trs, null));
+    trs.push(tr); tb.append(tr);
+  });
+  t.append(tb);
+  panel.append(el("div", { class: "table-wrap" }, [t]));
+  document.getElementById("fly").addEventListener("click", () => fly(all));
+}
+
 function renderCourse() {
   const panel = document.getElementById("panel");
   panel.replaceChildren();
@@ -372,7 +400,7 @@ function renderCourse() {
   if (!C) { panel.append(el("p", { class: "note", text: "The fixtures weren't mounted when this page was built, so there is no course view." })); return; }
   const classColor = (id) => ({ 1: "#4f9a3c", 2: "#64a84a", 3: "#79b85a", 4: "#6fae52", 5: "#7aa94e", 6: "#6a9844", 7: "#b5ad6a", 8: "#d9c79a", 9: "#3f7da3", 10: "#b8ac96", 11: "#8f6e47", 12: "#9a9a5d", 13: "#a39890", 15: "#e8d9ae", 16: "#a8ad66" }[id] || "#888");
   panel.append(el("div", { class: "panel-head" }, [el("h2", { text: `${C.course} · hole ${C.hole} · par ${C.par} · ${fmt(C.length_yd, 0)} yd` }), el("button", { class: "btn", type: "button", id: "fly", text: "Fly" })]));
-  panel.append(el("p", { class: "note", text: `Shots from the ${C.tee} tee towards its aim point, flown over the real ground (the bicubic height function, 0.5 m tier). The strip under the ground is the surface class along the aim line. The flight stops at first contact; bounce and roll come in M3.` }));
+  panel.append(el("p", { class: "note", text: `Shots from the ${C.tee} tee towards its aim point, played over the real ground (the bicubic height function, 0.5 m tier): flight, bounces and roll to rest. The strip under the ground is the surface class along the aim line.` }));
   const rows = C.shots.map((s, i) => ({ label: s.label, color: trajColor(i, C.shots.length), path: s.path, s }));
   const side = sideView(rows, { height: 320, terrain: C.profile, classColor, aria: "Shots over the hole's terrain" });
   const top = topView(rows, { height: 120 });
@@ -383,11 +411,11 @@ function renderCourse() {
   for (const id of seen) k.append(el("span", {}, [el("i", { style: `width:16px;height:6px;background:${classColor(id)}` }), document.createTextNode(C.classes[id] || id)]));
   panel.append(k);
   const t = el("table");
-  t.append(el("thead", {}, [el("tr", {}, ["Shot", "Carry", "First lands on", "Height at landing vs tee"].map(h => el("th", { text: h })))]));
+  t.append(el("thead", {}, [el("tr", {}, ["Shot", "Carry", "Total", "Lands on", "Rests on", "Landing vs tee"].map(h => el("th", { text: h })))]));
   const tb = el("tbody");
   for (const r of rows) tb.append(el("tr", {}, [
     el("td", {}, [el("span", { style: `display:inline-block;width:12px;height:3px;margin-right:6px;vertical-align:middle;background:${r.color}` }), document.createTextNode(r.label)]),
-    el("td", { text: fmt(r.s.carry) }), el("td", { text: r.s.lands_on }), el("td", { text: `${r.s.drop >= 0 ? "+" : ""}${fmt(r.s.drop)}` })]));
+    el("td", { text: fmt(r.s.carry) }), el("td", { text: fmt(r.s.total) }), el("td", { text: r.s.lands_on }), el("td", { text: r.s.state === "OnGround" ? r.s.rests_on : r.s.state.toLowerCase() }), el("td", { text: `${r.s.drop >= 0 ? "+" : ""}${fmt(r.s.drop)}` })]));
   t.append(tb);
   panel.append(el("div", { class: "table-wrap" }, [t]));
   document.getElementById("fly").addEventListener("click", () => fly(all));
@@ -404,6 +432,7 @@ function boot() {
   const tabs = document.getElementById("tabs");
   const views = DATA.groups.map(g => ({ id: g.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"), name: g.name.replace("Handicap sniff tests", "Handicaps"), run: () => renderGroup(g) }));
   views.push({ id: "shapes", name: "Shape checks", run: renderShapes });
+  views.push({ id: "ground", name: "Bounce and roll", run: renderGround });
   views.push({ id: "course", name: "On a course", run: renderCourse });
   let current = null;
   const select = (v) => {

@@ -5,7 +5,7 @@ use std::hint::black_box;
 use std::path::Path;
 use std::time::Instant;
 
-use golf_core::Vec2;
+use golf_core::{Vec2, Vec3};
 use golf_course::{Course, LoadOptions};
 
 pub fn run(dir: &Path) -> Result<(), String> {
@@ -94,6 +94,40 @@ pub fn run(dir: &Path) -> Result<(), String> {
     }
     let fl_us = t.elapsed().as_secs_f64() * 1e6 / n_fl as f64;
     println!("  flight over the course (wind on): {fl_us:.0} us per flight, {} steps on average", steps / n_fl as usize);
+    // whole shots (flight, bounces, roll) and putts, over the real ground
+    let mats = golf_ground::GroundMaterials::builtin();
+    let mut n_sh = 0u32;
+    let mut longest = 0.0f64;
+    let t = Instant::now();
+    for _ in 0..10 {
+        for h in &c.holes {
+            let tee = &h.tees[0];
+            let az = golf_core::math::atan2(tee.aim[1] - tee.plate[1], tee.aim[0] - tee.plate[0]);
+            let cup = golf_ground::Cup { xy: Vec2::new(h.green.pin.xy[0], h.green.pin.xy[1]), z: h.green.pin.z };
+            let b = golf_ground::BallModel::new(&c, &mats, a, golf_core::Air::trackman_normal(), golf_flight::Wind::new(4.0, 1.0), Some(cup));
+            for (mph, la, sp) in launches {
+                let o = b.play(Vec2::new(tee.plate[0], tee.plate[1]), &golf_core::LaunchConditions::from_monitor(mph, la, az, sp, 2.0));
+                longest = longest.max(o.time_s);
+                n_sh += 1;
+            }
+        }
+    }
+    let sh_us = t.elapsed().as_secs_f64() * 1e6 / n_sh as f64;
+    let mut n_p = 0u32;
+    let t = Instant::now();
+    for _ in 0..20 {
+        for h in &c.holes {
+            let pin = Vec2::new(h.green.pin.xy[0], h.green.pin.xy[1]);
+            let cup = golf_ground::Cup { xy: pin, z: h.green.pin.z };
+            let b = golf_ground::BallModel::new(&c, &mats, a, golf_core::Air::trackman_normal(), golf_flight::Wind::CALM, Some(cup));
+            // a 10 m putt struck at 3 m/s towards the pin
+            let from = pin + Vec2::new(10.0, 0.0);
+            let _ = b.roll_from(from, Vec3::new(-3.0, 0.0, 0.0));
+            n_p += 1;
+        }
+    }
+    let p_us = t.elapsed().as_secs_f64() * 1e6 / n_p as f64;
+    println!("  whole shot (flight + bounces + roll): {sh_us:.0} us per shot (longest {longest:.1} s of ball time); a 10 m putt: {p_us:.0} us");
     println!("  (a 20k-step ground roll with one height + derivative query per step: {:.2} ms)", 20_000.0 * s_ns / 1e6);
     Ok(())
 }

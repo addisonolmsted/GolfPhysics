@@ -83,19 +83,24 @@ speed term below the fitted range; refit. Details: [flight.md](docs/models/fligh
   - Driver curve matches TrackMan; iron curve goes to M4.
   - Accepted deviations (D37): PGA driver carry -3.6 %, the 10 handicap sniff row 1.5 yd short.
 
-### M3: Ground (`next`)
+### M3: Ground (`done` 2026-10-13, branch `m3-ground`)
 
 `golf-ground`: bounce (velocity-dependent restitution, turf tilt, grip/slip impulse with spin), the slide-to-roll
 switch, rolling resistance, slope gravity, putting, cup capture, water entry, plugging in sand.
 
 - Material parameters move into our own `materials.physics.json` override, keyed by C0 class id.
+- **Result:** every gate met: stimp exact, the amateur driver rolls 22 yd (TrackMan 22), wedges check, the cup
+  captures below 1.64 m/s, a ball settles at every fixture pin, and a 900-shot fuzz is clean. A whole shot takes
+  0.52-0.59 ms. The fuzz found a flight bug (D43). The D15 comparison (bicubic vs bilinear, 0.25 m greens, the 1 m
+  class raster) is still open: there's no difference to measure until putting and playtests can feel it, so it moves
+  to M7/M10. Details: [ground.md](docs/models/ground.md#results-2026-10-13).
 - **Deferred decisions settled here (D15):** bicubic vs bilinear, 0.5 m vs 0.25 m on greens and bunker faces, and the
   class raster resolution, each by comparing feel and cost on the fixtures.
 - **Gate:** a stimp test (1.83 m/s on a flat green rolls the stimp distance ±3 %). Landing roll-outs per club and
   surface fall within the target bands. A ball dropped on every fixture green settles. No ball tunnels through the
   ground or escapes the world in a 100k random-shot fuzz.
 
-### M4: Impact and clubs (`queued`)
+### M4: Impact and clubs (`next`)
 
 `golf-impact` and the club table (data file): delivery to launch through the D-plane model, a smash factor per
 club, a strike-point gear effect, and lie effects from the material and later from the lie layer.

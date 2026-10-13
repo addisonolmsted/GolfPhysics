@@ -6,7 +6,7 @@ use std::path::Path;
 
 use golf_core::{Air, LaunchConditions, Vec2};
 use golf_course::Course;
-use golf_flight::{AeroParams, End, Flight, Model, Wind};
+use golf_flight::{AeroParams, Flight, Model, Wind};
 use serde_json::{Value, json};
 
 use crate::calib::{self, M_PER_YD};
@@ -68,6 +68,56 @@ fn shapes(a: &AeroParams) -> Value {
     })
 }
 
+/// the samples of a whole shot (air and ground) as [downrange, lateral (+ right), height] yards from the start
+fn outcome_path(o: &golf_ground::Outcome, dir: Vec2) -> Value {
+    let pts: Vec<Value> = o
+        .samples
+        .iter()
+        .map(|s| {
+            let off = s.p.xy() - o.start.xy();
+            json!([r1(off.dot(dir) / M_PER_YD), r1(-dir.cross(off) / M_PER_YD), r1((s.p.z - o.start.z) / M_PER_YD)])
+        })
+        .collect();
+    Value::Array(pts)
+}
+
+fn outcome_summary(o: &golf_ground::Outcome, dir: Vec2) -> Value {
+    json!({
+        "carry": r1(o.carry_m() / M_PER_YD), "total": r1(o.total_m() / M_PER_YD), "roll": r1((o.total_m() - o.carry_m()) / M_PER_YD),
+        "bounces": o.bounces(), "state": format!("{:?}", o.state), "time": r1(o.time_s), "path": outcome_path(o, dir)
+    })
+}
+
+/// landing, bounce and roll on uniform surfaces (golf-ground's test planes)
+fn ground_demo(a: &AeroParams) -> Value {
+    use golf_course::SurfaceClass as C;
+    let mats = golf_ground::GroundMaterials::builtin();
+    let cases: [(&str, C, f64, f64, f64); 12] = [
+        ("PGA driver", C::FAIRWAY, 167.0, 10.9, 2686.0),
+        ("Amateur driver", C::FAIRWAY, 132.6, 12.6, 3275.0),
+        ("LPGA driver", C::FAIRWAY, 140.0, 13.2, 2611.0),
+        ("70 mph driver", C::FAIRWAY, 97.0, 15.0, 3200.0),
+        ("Amateur driver", C::ROUGH, 132.6, 12.6, 3275.0),
+        ("PGA 7 iron", C::GREEN, 120.0, 16.3, 7097.0),
+        ("Amateur 7 iron", C::GREEN, 106.0, 17.5, 6500.0),
+        ("PGA PW", C::GREEN, 102.0, 24.2, 9304.0),
+        ("Amateur PW", C::GREEN, 90.0, 26.0, 8400.0),
+        ("Chip, 34 mph at 30°", C::GREEN, 34.0, 30.0, 3000.0),
+        ("PGA 7 iron", C::BUNKER_SAND, 120.0, 16.3, 7097.0),
+        ("Amateur driver", C::BUNKER_SAND, 132.6, 12.6, 3275.0),
+    ];
+    let rows: Vec<Value> = cases
+        .iter()
+        .map(|&(label, class, mph, la, rpm)| {
+            let plane = golf_ground::TestPlane::flat(class);
+            let b = golf_ground::BallModel::new(&plane, &mats, *a, Air::trackman_normal(), Wind::CALM, None);
+            let o = b.play(Vec2::ZERO, &LaunchConditions::from_monitor(mph, la, 0.0, rpm, 0.0));
+            json!({"label": label, "surface": mats.get(class).name, "model": outcome_summary(&o, Vec2::new(1.0, 0.0))})
+        })
+        .collect();
+    json!({"title": "Bounce and roll", "note": "Each shot lands on a flat, uniform surface: the first contact, the bounces (turf give, restitution falling with impact speed, grip or slip with spin), then slide and roll to rest. The fairway is fitted to TrackMan's amateur driver (carry 204, total 226 yd); the green rolls at stimp 10.5.", "rows": rows})
+}
+
 /// a few shots from hole 1's back tee of a fixture, flown over the real ground
 fn course_demo(a: &AeroParams) -> Option<Value> {
     let dir = std::env::var("GOLF_FIXTURES").unwrap_or_else(|_| "/Volumes/GolfOut/out/physics_fixtures/v1".into());
@@ -79,12 +129,14 @@ fn course_demo(a: &AeroParams) -> Option<Value> {
     let az = golf_core::math::atan2(aim.y - start.y, aim.x - start.x);
     let d = (aim - start).norm();
     let z0 = c.height(start.x, start.y)?;
-    let m = Model::new(*a, Air::trackman_normal(), Wind::CALM, &c);
+    let mats = golf_ground::GroundMaterials::builtin();
+    let cup = golf_ground::Cup { xy: Vec2::new(h.green.pin.xy[0], h.green.pin.xy[1]), z: h.green.pin.z };
+    let ball = golf_ground::BallModel::new(&c, &mats, *a, Air::trackman_normal(), Wind::CALM, Some(cup));
     let shots = [("PGA Tour driver", 167.0, 10.9, 2686.0), ("Average amateur driver", 132.6, 12.6, 3275.0), ("Slow swinger driver", 112.0, 14.0, 3200.0), ("Average amateur 7 iron", 106.0, 17.5, 6500.0)];
     let mut out = Vec::new();
     for (label, mph, launch, spin) in shots {
-        let f = m.fly(start, &LaunchConditions::from_monitor(mph, launch, az, spin, 0.0));
-        let pts: Vec<Value> = f
+        let o = ball.play(start, &LaunchConditions::from_monitor(mph, launch, az, spin, 0.0));
+        let pts: Vec<Value> = o
             .samples
             .iter()
             .map(|s| {
@@ -92,13 +144,16 @@ fn course_demo(a: &AeroParams) -> Option<Value> {
                 json!([r1(off.dot(d) / M_PER_YD), r1(-d.cross(off) / M_PER_YD), r1((s.p.z - golf_core::ball::RADIUS_M - z0) / M_PER_YD)])
             })
             .collect();
-        let lie = c.surface(f.last.p.x, f.last.p.y);
+        let land = o.first_contact.unwrap_or(o.rest);
+        let rest_class = c.surface(o.rest.x, o.rest.y);
         out.push(json!({
             "label": label,
-            "carry": r1(f.carry_m() / M_PER_YD),
-            "lands_on": c.material(lie).name,
-            "drop": r1((f.last.p.z - golf_core::ball::RADIUS_M - z0) / M_PER_YD),
-            "ended": matches!(f.end, End::Contact { .. }),
+            "carry": r1(o.carry_m() / M_PER_YD),
+            "total": r1(o.total_m() / M_PER_YD),
+            "lands_on": c.material(c.surface(land.x, land.y)).name,
+            "rests_on": c.material(rest_class).name,
+            "state": format!("{:?}", o.state),
+            "drop": r1((land.z - golf_core::ball::RADIUS_M - z0) / M_PER_YD),
             "path": pts
         }));
     }
@@ -167,6 +222,7 @@ pub fn run() -> Result<(), String> {
         "summary": {"fit_rows": r.fit_rows.len(), "within3": within3, "worst_fit_err": r1(worst), "sniff_rows": r.sniff_rows.len(), "sniff_pass": sniff_pass},
         "groups": groups.into_iter().map(|(n, rows)| json!({"name": n, "rows": rows})).collect::<Vec<_>>(),
         "shapes": shapes(&a),
+        "ground": ground_demo(&a),
         "course": course_demo(&a)
     });
     let html = TEMPLATE.replacen("/*__DATA__*/null", &data.to_string(), 1);

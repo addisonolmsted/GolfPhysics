@@ -18,6 +18,8 @@ pub const SAMPLE_HZ: f64 = 30.0;
 const MAX_T_S: f64 = 20.0;
 /// halvings of a 10 ms step: 0.6 µs, under 0.1 mm at any ball speed
 const BISECT_ITERS: u32 = 24;
+/// contact is tested from this long after the start at the latest, s
+const AIRBORNE_AFTER_S: f64 = 0.05;
 /// the steepest ground the contact check assumes between queries (rise over run)
 const MAX_GROUND_SLOPE: f64 = 2.0;
 
@@ -162,7 +164,9 @@ impl<'a> Model<'a> {
         let mut samples = vec![s0];
         let mut gz = self.ground.contact(s.p.x, s.p.y).map_or(s.p.z - RADIUS_M, |g| g.0);
         let mut next_check = 0.0;
-                // leave the ground before testing for contact (the launch starts touching it)
+        // leave the ground before testing for contact (the launch starts touching it): 1 cm of clearance or 50 ms,
+        // whichever comes first. A hop off a slope can start a hair below the surface and never clear 1 cm; without
+        // the time limit it would fall through the ground (found by the M3 fuzz)
         let mut airborne = false;
         while s.t < MAX_T_S {
             let n = self.rk4(&s, self.dt_s, s.p.z - gz);
@@ -176,10 +180,11 @@ impl<'a> Model<'a> {
                     Some((g, surf)) => {
                         gz = g;
                         let clear = n.p.z - RADIUS_M - g;
-                        if clear > 0.01 {
+                        if clear > 0.01 || n.t - s0.t > AIRBORNE_AFTER_S {
                             airborne = true;
                         }
-                        if airborne && clear <= 0.0 {
+                        // in contact: or, before that, more than 2 cm into the ground
+                        if (airborne && clear <= 0.0) || clear < -0.02 {
                             let (c, g, surf) = self.bisect(&s, g, surf);
                             samples.push(c);
                             return Flight { samples, apex, last: c, end: End::Contact { surface: surf, ground_z: g }, launch: s0 };
