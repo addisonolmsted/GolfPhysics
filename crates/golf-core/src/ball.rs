@@ -6,5 +6,7 @@ pub const MASS_KG: f64 = 0.04593;
 pub const RADIUS_M: f64 = 0.021335;
 /// I = k m r²; placeholder until M3 picks one value (a real ball is close to a solid sphere's 0.4)
 pub const INERTIA_K: f64 = 0.4;
-/// m, the cup's radius (108 mm diameter)
+/// m, the regulation cup's radius (108 mm diameter)
 pub const CUP_RADIUS_M: f64 = 0.054;
+/// m, the game's cup radius: 10 inches across (254 mm), for forgiving putts (owner, 2026-10-13: D47)
+pub const GAME_CUP_RADIUS_M: f64 = 0.127;

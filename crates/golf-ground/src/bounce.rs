@@ -30,7 +30,10 @@ pub fn bounce(v: Vec3, w: Vec3, n: Vec3, mat: &GroundMaterial) -> BounceOut {
     // the turf tilt
     let landing = math::asin((-vn / speed).min(1.0));
     let vt = v - n * vn;
-    let tilt = mat.tilt_rad(speed, landing);
+    // The tilt models the crater's far wall pushing back. It can never lean the normal past the ball's own incoming
+    // direction (the angle between n and -v is 90° - landing): a head-on hit into a steep face has no far wall, and
+    // an uncapped tilt there pushed the ball down the face at 9 m/s (found by the Ground Lab's pitch into a face)
+    let tilt = mat.tilt_rad(speed, landing).min(0.9 * (std::f64::consts::FRAC_PI_2 - landing));
     let ne = if vt.len() > 1e-9 { (n * math::cos(tilt) - vt.norm() * math::sin(tilt)).norm() } else { n };
     let vne = v.dot(ne);
     if vne >= 0.0 {

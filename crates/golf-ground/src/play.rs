@@ -109,21 +109,21 @@ impl<'a, T: Terrain> BallModel<'a, T> {
             let s = f.last;
             match f.end {
                 End::OffWorld => {
-                    rec.event(s.t, s.p, EventKind::OffWorld);
+                    rec.event(&s, EventKind::OffWorld);
                     return self.done(rec, start, first, s, RestState::OffWorld);
                 }
                 End::Timeout => {
-                    rec.event(s.t, s.p, EventKind::Timeout);
+                    rec.event(&s, EventKind::Timeout);
                     return self.done(rec, start, first, s, RestState::Timeout);
                 }
                 End::Contact { surface, .. } => {
                     let class = self.terrain.class_at(s.p.x, s.p.y);
                     if first.is_none() {
                         first = Some(s.p);
-                        rec.event(s.t, s.p, EventKind::Land { class });
+                        rec.event(&s, EventKind::Land { class });
                     }
                     if surface == ContactSurface::Water {
-                        rec.event(s.t, s.p, EventKind::Water);
+                        rec.event(&s, EventKind::Water);
                         return self.done(rec, start, first, s, RestState::InWater);
                     }
                     let Some(sf) = self.terrain.surface_at(s.p.x, s.p.y) else {
@@ -132,13 +132,13 @@ impl<'a, T: Terrain> BallModel<'a, T> {
                     let n = Vec3::new(-sf.dzdx, -sf.dzdy, 1.0).norm();
                     let b = bounce(s.v, s.w, n, self.mats.get(class));
                     if b.plugged {
-                        rec.event(s.t, s.p, EventKind::Plug);
+                        rec.event(&s, EventKind::Plug);
                         let mut r = s;
                         r.v = Vec3::ZERO;
                         r.w = Vec3::ZERO;
                         return self.done(rec, start, first, r, RestState::Plugged);
                     }
-                    rec.event(s.t, s.p, EventKind::Bounce { class, cor: b.cor, gripped: b.gripped });
+                    rec.event(&s, EventKind::Bounce { class, cor: b.cor, gripped: b.gripped });
                     let next = State { t: s.t, p: s.p, v: b.v, w: b.w };
                     if b.v.dot(n) < HOP_MIN_MPS {
                         let (end, r) = roll(self.terrain, self.mats, next, self.cup, rec);
@@ -153,7 +153,7 @@ impl<'a, T: Terrain> BallModel<'a, T> {
             }
         }
         let s = f.last;
-        rec.event(s.t, s.p, EventKind::Timeout);
+        rec.event(&s, EventKind::Timeout);
         self.done(rec, start, first, s, RestState::Timeout)
     }
 }

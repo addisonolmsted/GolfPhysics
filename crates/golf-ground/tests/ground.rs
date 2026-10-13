@@ -98,7 +98,7 @@ fn the_cup_takes_putts_below_the_capture_speed() {
     let a = m.get(SurfaceClass::GREEN).base_decel();
     let putt = |at_hole: f64, offset: f64| {
         let d = 3.0;
-        let b = BallModel::new(&green, &m, AeroParams::builtin(), Air::trackman_normal(), Wind::CALM, Some(Cup { xy: Vec2::new(d, offset), z: 0.0 }));
+        let b = BallModel::new(&green, &m, AeroParams::builtin(), Air::trackman_normal(), Wind::CALM, Some(Cup::regulation(Vec2::new(d, offset), 0.0)));
         b.roll_from(Vec2::ZERO, Vec3::new((at_hole * at_hole + 2.0 * a * d).sqrt(), 0.0, 0.0))
     };
     assert_eq!(putt(1.0, 0.0).state, RestState::Holed);
@@ -169,7 +169,7 @@ fn random_shots_on_every_fixture_end_cleanly() {
             let tee = &h.tees[0];
             let start = Vec2::new(tee.plate[0], tee.plate[1]) + Vec2::new(rnd() - 0.5, rnd() - 0.5) * 60.0;
             let wind = Wind::new(rnd() * 10.0, rnd() * std::f64::consts::TAU);
-            let b = BallModel::new(&c, &m, AeroParams::builtin(), Air::trackman_normal(), wind, Some(Cup { xy: Vec2::new(h.green.pin.xy[0], h.green.pin.xy[1]), z: h.green.pin.z }));
+            let b = BallModel::new(&c, &m, AeroParams::builtin(), Air::trackman_normal(), wind, Some(Cup::game(Vec2::new(h.green.pin.xy[0], h.green.pin.xy[1]), h.green.pin.z)));
             let l = LaunchConditions::from_monitor(40.0 + rnd() * 130.0, 5.0 + rnd() * 30.0, rnd() * std::f64::consts::TAU, 1500.0 + rnd() * 9000.0, (rnd() - 0.5) * 30.0);
             let o = b.play(start, &l);
             assert_ne!(o.state, RestState::Timeout, "{seed} shot {k} timed out at t {:.1} s, rest {:?} class {:?}; last events {:?}",

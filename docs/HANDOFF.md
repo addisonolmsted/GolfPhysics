@@ -33,6 +33,10 @@ Updated 2026-10-11. Read this first when picking the work up in a new session.
 - **M3 done** (2026-10-13) on branch `m3-ground`: `golf-ground` (bounce, slide, roll, putting, cup, water, plugging;
   `data/materials/physics.v1.json`). All gates met; 0.52-0.59 ms per whole shot. The viewer has a "Bounce and roll"
   tab, and the course tab now plays whole shots.
+- **Ground Lab** (`golf-lab ground-lab`, `out/viewer/ground.html`): crests, a hollow, a drop, a steep face, a cross
+  slope, tour wedges and a backstop, all behaving as predicted (a test guards them). It led to green tilt 18° (D44),
+  the tilt cap (D45) and the liftoff fix (D46). The **game cup is 10 inches** (D47); its capture-speed cap
+  (`GAME_CAPTURE_CAP_MPS`) waits on the owner.
 - **Next: M4, impact and clubs** (D-plane, the club table, lie effects, the per-club face/path → curve
   calibration).
 - **Carry into M7:** speed for the putting assist (6-10 putts per stroke at ~0.47 ms each): a patch cache or a

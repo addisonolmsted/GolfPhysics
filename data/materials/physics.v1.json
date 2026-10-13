@@ -1,6 +1,6 @@
 {
  "version": 1,
- "status": "M3 (2026-10-13): the green from Penner's model and stimp; the fairway and tee fitted to TrackMan's amateur driver (carry 204, total 226 yd: tilt 18, roll 1.2 + 0.2 v); the rest scaled from those, placeholders until feel tuning (D21)",
+ "status": "M3 (2026-10-13): the green from Penner's model and stimp, its turf tilt raised to 18 deg (from 15.4) to fit tour wedges: a full PW spins back ~2 yd, a check shot stops, a low spinner releases ~5 yd (golf-lab/examples/green_sweep.rs, 2026-10-13); the fairway and tee fitted to TrackMan's amateur driver (carry 204, total 226 yd: tilt 18, roll 1.2 + 0.2 v); the rest scaled from those, placeholders until feel tuning (D21)",
  "model": {
   "cor": "e(v) = clamp(cor_scale * (0.510 - 0.0375 v + 0.000903 v^2), cor_min, 0.8), v = the normal impact speed in m/s (Penner 2002's green fit, valid to 20 m/s; to check against the paper)",
   "tilt": "the effective normal leans back towards the incoming ball by tilt_deg * (v / 18.6) * (landing angle / 44.4 deg), capped at tilt_max_deg (Penner's form, 15.4 deg on a green)",
@@ -27,8 +27,8 @@
    "name": "green",
    "cor_scale": 1.0,
    "cor_min": 0.12,
-   "tilt_deg": 15.4,
-   "tilt_max_deg": 25,
+   "tilt_deg": 18.0,
+   "tilt_max_deg": 30,
    "bounce_mu": 0.4,
    "slide_mu": 0.4,
    "stimp_ft": 10.5,

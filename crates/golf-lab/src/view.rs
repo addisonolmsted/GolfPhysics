@@ -130,7 +130,7 @@ fn course_demo(a: &AeroParams) -> Option<Value> {
     let d = (aim - start).norm();
     let z0 = c.height(start.x, start.y)?;
     let mats = golf_ground::GroundMaterials::builtin();
-    let cup = golf_ground::Cup { xy: Vec2::new(h.green.pin.xy[0], h.green.pin.xy[1]), z: h.green.pin.z };
+    let cup = golf_ground::Cup::game(Vec2::new(h.green.pin.xy[0], h.green.pin.xy[1]), h.green.pin.z);
     let ball = golf_ground::BallModel::new(&c, &mats, *a, Air::trackman_normal(), Wind::CALM, Some(cup));
     let shots = [("PGA Tour driver", 167.0, 10.9, 2686.0), ("Average amateur driver", 132.6, 12.6, 3275.0), ("Slow swinger driver", 112.0, 14.0, 3200.0), ("Average amateur 7 iron", 106.0, 17.5, 6500.0)];
     let mut out = Vec::new();

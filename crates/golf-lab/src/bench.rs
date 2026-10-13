@@ -103,7 +103,7 @@ pub fn run(dir: &Path) -> Result<(), String> {
         for h in &c.holes {
             let tee = &h.tees[0];
             let az = golf_core::math::atan2(tee.aim[1] - tee.plate[1], tee.aim[0] - tee.plate[0]);
-            let cup = golf_ground::Cup { xy: Vec2::new(h.green.pin.xy[0], h.green.pin.xy[1]), z: h.green.pin.z };
+            let cup = golf_ground::Cup::regulation(Vec2::new(h.green.pin.xy[0], h.green.pin.xy[1]), h.green.pin.z);
             let b = golf_ground::BallModel::new(&c, &mats, a, golf_core::Air::trackman_normal(), golf_flight::Wind::new(4.0, 1.0), Some(cup));
             for (mph, la, sp) in launches {
                 let o = b.play(Vec2::new(tee.plate[0], tee.plate[1]), &golf_core::LaunchConditions::from_monitor(mph, la, az, sp, 2.0));
@@ -118,7 +118,7 @@ pub fn run(dir: &Path) -> Result<(), String> {
     for _ in 0..20 {
         for h in &c.holes {
             let pin = Vec2::new(h.green.pin.xy[0], h.green.pin.xy[1]);
-            let cup = golf_ground::Cup { xy: pin, z: h.green.pin.z };
+            let cup = golf_ground::Cup::regulation(pin, h.green.pin.z);
             let b = golf_ground::BallModel::new(&c, &mats, a, golf_core::Air::trackman_normal(), golf_flight::Wind::CALM, Some(cup));
             // a 10 m putt struck at 3 m/s towards the pin
             let from = pin + Vec2::new(10.0, 0.0);

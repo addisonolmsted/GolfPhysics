@@ -17,6 +17,8 @@ pub struct Sample {
     pub t: f64,
     pub p: Vec3,
     pub v: Vec3,
+    /// spin, rad/s (world frame)
+    pub w: Vec3,
     pub phase: Phase,
 }
 
@@ -56,7 +58,7 @@ impl Recorder {
     /// a ground sample, kept when 1/30 s has passed since the last one
     pub fn sample(&mut self, s: State, phase: Phase) {
         if s.t + 1e-9 >= self.next_t || phase == Phase::Rest {
-            self.samples.push(Sample { t: s.t, p: s.p, v: s.v, phase });
+            self.samples.push(Sample { t: s.t, p: s.p, v: s.v, w: s.w, phase });
             self.next_t = s.t + SAMPLE_DT_S;
         }
     }
@@ -64,16 +66,22 @@ impl Recorder {
     /// the flight's own samples (already ~30 Hz)
     pub fn flight(&mut self, f: &golf_flight::Flight) {
         for s in &f.samples {
-            self.samples.push(Sample { t: s.t, p: s.p, v: s.v, phase: Phase::Air });
+            self.samples.push(Sample { t: s.t, p: s.p, v: s.v, w: s.w, phase: Phase::Air });
         }
         self.next_t = f.last.t;
     }
 
-    pub fn event(&mut self, t: f64, p: Vec3, kind: EventKind) {
-        self.events.push(Event { t, p, kind });
-        // every event is also a sample, so a drawn path goes through it
-        if self.samples.last().is_none_or(|s| s.t < t) {
-            self.samples.push(Sample { t, p, v: Vec3::ZERO, phase: Phase::Roll });
+    /// an event at a state; every event is also a sample (with the ball's real velocity and spin), so a drawn path
+    /// goes through it
+    pub fn event(&mut self, s: &State, kind: EventKind) {
+        self.events.push(Event { t: s.t, p: s.p, kind });
+        if self.samples.last().is_none_or(|x| x.t < s.t) {
+            let phase = match kind {
+                EventKind::Rest | EventKind::Holed | EventKind::Plug => Phase::Rest,
+                EventKind::Land { .. } | EventKind::Bounce { .. } | EventKind::Liftoff => Phase::Air,
+                _ => Phase::Roll,
+            };
+            self.samples.push(Sample { t: s.t, p: s.p, v: s.v, w: s.w, phase });
         }
     }
 }

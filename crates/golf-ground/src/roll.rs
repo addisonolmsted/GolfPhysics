@@ -19,20 +19,51 @@ pub const SLIP_EPS_MPS: f64 = 0.02;
 pub const REST_SPEED_MPS: f64 = 0.01;
 pub const MAX_ROLL_S: f64 = 60.0;
 
-/// the hole: the pin's position and the ground height at the cup
+/// the hole: the pin's position, the ground height at the cup, its size, and an optional cap on the capture speed
 #[derive(Clone, Copy, Debug)]
 pub struct Cup {
     pub xy: Vec2,
     pub z: f64,
+    pub radius_m: f64,
+    /// a big game cup captures fast putts (3.9 m/s through the centre at 10 inches); a cap keeps pace mattering
+    pub capture_cap_mps: Option<f64>,
 }
 
-/// The fastest a ball can cross the cup and still drop: it must fall about its own radius while it crosses the
-/// chord at offset b from the centre. At b = 0 this is 1.64 m/s, close to Holmes' measured 1.63 m/s.
-pub fn capture_speed(b: f64) -> f64 {
-    if b >= CUP_RADIUS_M {
+impl Cup {
+    /// the regulation 108 mm cup
+    pub fn regulation(xy: Vec2, z: f64) -> Cup {
+        Cup { xy, z, radius_m: CUP_RADIUS_M, capture_cap_mps: None }
+    }
+
+    /// the game's cup (D47): 10 inches across, capture speed capped at GAME_CAPTURE_CAP_MPS
+    pub fn game(xy: Vec2, z: f64) -> Cup {
+        Cup { xy, z, radius_m: golf_core::ball::GAME_CUP_RADIUS_M, capture_cap_mps: GAME_CAPTURE_CAP_MPS }
+    }
+
+    /// the fastest a ball crossing on a line b from the centre can drop
+    pub fn capture_speed(&self, b: f64) -> f64 {
+        let v = capture_speed_for(b, self.radius_m);
+        self.capture_cap_mps.map_or(v, |c| v.min(c))
+    }
+}
+
+/// the game cup's capture-speed cap (None: the physical limit for its size). To be set by the owner from the Ground
+/// Lab (D47)
+pub const GAME_CAPTURE_CAP_MPS: Option<f64> = None;
+
+/// The fastest a ball can cross a cup of radius R and still drop: it must fall about its own radius while it crosses
+/// the chord at offset b from the centre. For the regulation cup at b = 0 this is 1.64 m/s, close to Holmes'
+/// measured 1.63 m/s.
+pub fn capture_speed_for(b: f64, radius: f64) -> f64 {
+    if b >= radius {
         return 0.0;
     }
-    2.0 * (CUP_RADIUS_M * CUP_RADIUS_M - b * b).sqrt() * (G_MPS2 / (2.0 * RADIUS_M)).sqrt()
+    2.0 * (radius * radius - b * b).sqrt() * (G_MPS2 / (2.0 * RADIUS_M)).sqrt()
+}
+
+/// the regulation cup's capture speed
+pub fn capture_speed(b: f64) -> f64 {
+    capture_speed_for(b, CUP_RADIUS_M)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -60,14 +91,14 @@ pub fn roll<T: Terrain + ?Sized>(terrain: &T, mats: &GroundMaterials, s0: State,
     let mut s = s0;
     let mut sliding = true;
     let mut crossing_cup = false;
-    rec.event(s.t, s.p, EventKind::StartSlide);
+    rec.event(&s, EventKind::StartSlide);
     loop {
         if s.t - s0.t > MAX_ROLL_S {
-            rec.event(s.t, s.p, EventKind::Timeout);
+            rec.event(&s, EventKind::Timeout);
             return (RollEnd::Timeout, s);
         }
         let Some(sf) = terrain.surface_at(s.p.x, s.p.y) else {
-            rec.event(s.t, s.p, EventKind::OffWorld);
+            rec.event(&s, EventKind::OffWorld);
             return (RollEnd::OffWorld, s);
         };
         let n = Vec3::new(-sf.dzdx, -sf.dzdy, 1.0).norm();
@@ -77,7 +108,7 @@ pub fn roll<T: Terrain + ?Sized>(terrain: &T, mats: &GroundMaterials, s0: State,
             && wz > sf.z
         {
             s.p.z = wz;
-            rec.event(s.t, s.p, EventKind::Water);
+            rec.event(&s, EventKind::Water);
             return (RollEnd::InWater, s);
         }
         let mat = mats.get(class);
@@ -87,14 +118,16 @@ pub fn roll<T: Terrain + ?Sized>(terrain: &T, mats: &GroundMaterials, s0: State,
         let speed = s.v.len();
         rec.sample(s, if sliding { Phase::Slide } else { Phase::Roll });
 
-        // a crest that drops away faster than gravity throws the ball back into the air
+        // A crest that drops away faster than gravity throws the ball back into the air. Following z = h(x) at
+        // horizontal speed v_h needs a vertical acceleration h'' v_h²; the ground can only push, so the ball leaves
+        // when h'' v_h² < -g. (The curvature and the slope's cosine cancel: v² κ > g cos θ is the same condition.)
         let vh = s.v.xy();
         let vhl = vh.len();
-        if vhl > 0.5 {
+        if vhl > 0.2 {
             let d = vh / vhl;
             let hss = sf.dxx * d.x * d.x + 2.0 * sf.dxy * d.x * d.y + sf.dyy * d.y * d.y;
-            if hss * vhl * vhl < -G_MPS2 * n.z {
-                rec.event(s.t, s.p, EventKind::Liftoff);
+            if hss * vhl * vhl < -G_MPS2 {
+                rec.event(&s, EventKind::Liftoff);
                 return (RollEnd::Liftoff, s);
             }
         }
@@ -115,7 +148,7 @@ pub fn roll<T: Terrain + ?Sized>(terrain: &T, mats: &GroundMaterials, s0: State,
         } else {
             if sliding {
                 sliding = false;
-                rec.event(s.t, s.p, EventKind::StartRoll);
+                rec.event(&s, EventKind::StartRoll);
             }
             let pull = g_t / (1.0 + INERTIA_K);
             if speed < REST_SPEED_MPS {
@@ -123,7 +156,7 @@ pub fn roll<T: Terrain + ?Sized>(terrain: &T, mats: &GroundMaterials, s0: State,
                     s.v = Vec3::ZERO;
                     s.w = Vec3::ZERO;
                     rec.sample(s, Phase::Rest);
-                    rec.event(s.t, s.p, EventKind::Rest);
+                    rec.event(&s, EventKind::Rest);
                     return (RollEnd::Rest, s);
                 }
                 s.v += pull * dt;
@@ -148,27 +181,27 @@ pub fn roll<T: Terrain + ?Sized>(terrain: &T, mats: &GroundMaterials, s0: State,
         // from the centre (b), not where the ball first meets the rim
         if let Some(c) = cup {
             let near = seg_dist(c.xy, p0.xy(), s.p.xy());
-            if near < CUP_RADIUS_M {
+            if near < c.radius_m {
                 if !crossing_cup {
                     crossing_cup = true;
                     let v = s.v.len();
                     let b = if v > 1e-9 { (s.v.xy() / s.v.xy().len()).cross(c.xy - p0.xy()).abs() } else { 0.0 };
-                    if v < capture_speed(b) {
+                    if v < c.capture_speed(b) {
                         s.p = Vec3::new(c.xy.x, c.xy.y, c.z - 0.05);
                         s.v = Vec3::ZERO;
                         s.w = Vec3::ZERO;
                         rec.sample(s, Phase::Rest);
-                        rec.event(s.t, s.p, EventKind::Holed);
+                        rec.event(&s, EventKind::Holed);
                         return (RollEnd::Holed, s);
                     }
                     // lip-out (placeholder, M3): turned away from the centre, more the nearer the edge, and slowed
                     let side = s.v.xy().cross(c.xy - s.p.xy()).signum();
-                    let ang = -side * 0.6 * (b / CUP_RADIUS_M);
+                    let ang = -side * 0.6 * (b / c.radius_m);
                     let (ca, sa) = (golf_core::math::cos(ang), golf_core::math::sin(ang));
                     s.v = Vec3::new(s.v.x * ca - s.v.y * sa, s.v.x * sa + s.v.y * ca, s.v.z) * 0.8;
-                    rec.event(s.t, s.p, EventKind::LipOut);
+                    rec.event(&s, EventKind::LipOut);
                 }
-            } else if near > CUP_RADIUS_M + 0.01 {
+            } else if near > c.radius_m + 0.01 {
                 crossing_cup = false;
             }
         }

@@ -15,5 +15,5 @@ pub mod terrain;
 pub use materials::{GroundMaterial, GroundMaterials};
 pub use play::{BallModel, Outcome, RestState};
 pub use record::{Event, EventKind, Phase, Sample};
-pub use roll::{Cup, capture_speed};
-pub use terrain::{Terrain, TestPlane};
+pub use roll::{Cup, GAME_CAPTURE_CAP_MPS, capture_speed, capture_speed_for};
+pub use terrain::{FnTerrain, Terrain, TestPlane};

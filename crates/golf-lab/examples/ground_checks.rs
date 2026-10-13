@@ -62,7 +62,7 @@ fn main() {
         let d = 3.0;
         let a = (green.base_decel(&m)).max(0.0);
         let v0 = (v * v + 2.0 * a * d).sqrt();
-        let b = BallModel::new(&green, &m, AeroParams::builtin(), Air::trackman_normal(), Wind::CALM, Some(Cup { xy: Vec2::new(d, off), z: 0.0 }));
+        let b = BallModel::new(&green, &m, AeroParams::builtin(), Air::trackman_normal(), Wind::CALM, Some(Cup::regulation(Vec2::new(d, off), 0.0)));
         let o = b.roll_from(Vec2::ZERO, Vec3::new(v0, 0.0, 0.0));
         let lip = o.events.iter().any(|e| e.kind == EventKind::LipOut);
         println!("  putt reaching the hole at {v:.1} m/s, {:.0} mm off-centre: {:?}{}", off * 1000.0, o.state, if lip { " (lipped out)" } else { "" });
