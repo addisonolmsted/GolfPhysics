@@ -100,7 +100,7 @@ club, a strike-point gear effect, and lie effects from the material and later fr
 - **Gate:** tour-average deliveries give tour-average launch conditions per club, and face/path combinations give
   the expected curve directions (fade, draw, push, pull, slice, hook).
 
-### M5: Swing input (`queued`; data collection started in parallel, D38)
+### M5: Swing input (`queued`; the SwingLab data-collection app is built, D38: [data-collection.md](docs/data-collection.md))
 
 - Agree on the P1 payload with the SwingApp side. Give SwingApp a transport, a swing id, timestamps and the raw
   IMU window.

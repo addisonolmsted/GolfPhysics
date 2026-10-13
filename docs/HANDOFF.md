@@ -23,8 +23,9 @@ Updated 2026-10-11. Read this first when picking the work up in a new session.
   - Open: verify TrackMan's apex and landing-angle columns; drivers land 3-4° steep and hang ~10 % long (M2b).
 - **M2b done** (2026-10-12) on branch `m2b-flight-refit` (off `m2-flight`): time, curve and wind targets, the
   tailwind fix, accepted deviations D37. The viewer is republished.
-- **Swing data (D38):** the team is building a small data-collection app and starting a 6-10 person sample, in
-  parallel. Its launch-monitor sessions should also record hang time, apex and landing angle (M2b's open items).
+- **Swing data (D38):** SwingLab, a new target in the SwingApp repo (branch `swinglab`, committed locally, not
+  pushed), is built: [data-collection.md](data-collection.md). The 6-10 person pilot follows the one-time Xcode setup
+  (signing, the iCloud container, the phone in Developer Mode). Its launch-monitor sessions should also record hang time, apex and landing angle (M2b's open items).
 - **Next: M3, ground.** Bounce, roll, putting, the patch cache, our material file.
 - **Carry into M3:** a patch cache for the height function (a 20k-step roll costs ~0.8 ms against a 0.5 ms
   budget), and our material override file.
