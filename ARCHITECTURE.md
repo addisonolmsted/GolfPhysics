@@ -40,6 +40,7 @@ docs/                  the authoritative documentation (index: docs/README.md)
   03-success-indicators.md  calibration targets (launch monitor tables, stimp), test tiers, gates
   04-decision-log.md   every decision with its date, who made it, and its status
   05-generator-requests.md  our answers to the generator's ten questions; what we ask it to build
+  06-beta-plan.md      the beta: every component, the onboarding swing test, order of work, decisions
   data-collection.md   the swing data study and the SwingLab app (in the SwingApp repo)
   contracts/           P0 course input (C0 as we read it), P1 swing input, P2 shot result
   models/              impact, flight, ground, obstacles, wind: the physics in each step

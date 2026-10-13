@@ -21,6 +21,9 @@ Cross-cutting rules and the repo map are in [ARCHITECTURE.md](ARCHITECTURE.md). 
 
 ## Milestones
 
+**Towards the beta:** [06-beta-plan.md](docs/06-beta-plan.md) cuts M3-M8 to beta size, adds the phone app, display,
+game layer and swing-data work around them, and orders it all (earliest beta about 6-7 weeks, 2026-10-13 estimate).
+
 The order is set by dependencies. Flight can be tested with launch numbers typed in by hand, so flight and ground
 come before impact and swing. The phone work (M5) can run in parallel from M1 on, because recording swings takes
 calendar time.

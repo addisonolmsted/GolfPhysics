@@ -27,6 +27,8 @@ Updated 2026-10-11. Read this first when picking the work up in a new session.
   pushed), is built: [data-collection.md](data-collection.md). Free personal team, so no iCloud: sessions are exported as
   a .zip (D41). The pilot needs only signing and Developer Mode on the phone; the app needs re-running from Xcode
   every 7 days. Its launch-monitor sessions should also record hang time, apex and landing angle (M2b's open items).
+- **Beta plan:** [06-beta-plan.md](06-beta-plan.md) (2026-10-13). Eight owner decisions listed there, the first being
+  the paid Apple Developer Program (TestFlight).
 - **Next: M3, ground.** Bounce, roll, putting, the patch cache, our material file.
 - **Carry into M3:** a patch cache for the height function (a 20k-step roll costs ~0.8 ms against a 0.5 ms
   budget), and our material override file.

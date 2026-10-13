@@ -13,6 +13,7 @@ The authoritative documentation. When code and a doc disagree, one of them is a 
 | [03-success-indicators.md](03-success-indicators.md) | Calibration targets and the gate for each milestone |
 | [04-decision-log.md](04-decision-log.md) | Every decision, its date, owner and status |
 | [05-generator-requests.md](05-generator-requests.md) | Our answers to the generator's questions and what we ask it for |
+| [06-beta-plan.md](06-beta-plan.md) | What a beta with every component needs, by area; the onboarding swing test; order of work; decisions; risks |
 | [data-collection.md](data-collection.md) | The swing data study and the SwingLab app: flow, detection, file format, CloudKit, protocol, pilot |
 
 ## Sections
