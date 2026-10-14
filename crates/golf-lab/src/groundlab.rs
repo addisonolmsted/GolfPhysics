@@ -56,6 +56,7 @@ fn shot_json(label: &str, o: &Outcome, verdict: Option<(bool, String)>) -> Value
                 EventKind::StartRoll => "roll",
                 EventKind::Liftoff => "airborne",
                 EventKind::LipOut => "lip-out",
+                EventKind::Flagstick => "flagstick",
                 EventKind::Holed => "holed",
                 EventKind::Water => "water",
                 EventKind::Plug => "plug",
@@ -319,7 +320,7 @@ fn putt_at_cup(m: &GroundMaterials, cup_r: f64, cap: Option<f64>, b: f64, v: f64
     let green = golf_ground::TestPlane::flat(C::GREEN);
     let d = 1.0;
     let a = m.get(C::GREEN).base_decel();
-    let cup = Cup { xy: Vec2::new(d, 0.0), z: 0.0, radius_m: cup_r, capture_cap_mps: cap };
+    let cup = Cup { xy: Vec2::new(d, 0.0), z: 0.0, radius_m: cup_r, capture_cap_mps: cap, flagstick: None };
     model(&green, m, Some(cup)).roll_from(Vec2::new(0.0, b), Vec3::new((v * v + 2.0 * a * (d - cup_r)).sqrt(), 0.0, 0.0))
 }
 
@@ -346,7 +347,7 @@ fn lip_outs(m: &GroundMaterials) -> Value {
         let text = if holed {
             format!("holed: {what}")
         } else {
-            format!("{} the ball left heading {turn:+.0}° off its line and stopped {:.2} m past ({what})", if has(&o, EventKind::LipOut) { "lipped out:" } else { "missed:" }, o.rest.x - d)
+            format!("{} the ball left heading {turn:+.0}° off its line and stopped {:.2} m from the hole ({what})", if has(&o, EventKind::LipOut) { "lipped out:" } else { "missed:" }, (o.rest.xy() - Vec2::new(d, 0.0)).len())
         };
         shots.push(shot_json(label, &o, Some((holed == drop, text))));
     }
@@ -416,6 +417,72 @@ fn rim_rides(m: &GroundMaterials) -> Value {
         "profile": Value::Null, "shots": shots})
 }
 
+fn flagstick(m: &GroundMaterials) -> Value {
+    let d = 6.0;
+    let r = golf_core::ball::GAME_CUP_RADIUS_M;
+    // a green of radius 4 m round the hole, fairway (the fringe) outside it
+    let t = FnTerrain { h: |_x: f64, _y: f64| 0.0, class: move |x: f64, y: f64| if (x - d).hypot(y) < 4.0 { C::GREEN } else { C::FAIRWAY } };
+    let game = Cup::game(Vec2::new(d, 0.0), 0.0);
+    let forced_out = Cup { flagstick: Some(false), ..game };
+    // a roll from x0 reaching the hole's x at v (searched on the same ground with no hole)
+    let roll_to = |x0: f64, v: f64, cup: Cup| {
+        let (mut lo, mut hi) = (0.1, 8.0);
+        for _ in 0..40 {
+            let mid = 0.5 * (lo + hi);
+            if speed_at_x(&model(&t, m, None).roll_from(Vec2::new(x0, 0.0), Vec3::new(mid, 0.0, 0.0)), d) < v { lo = mid } else { hi = mid }
+        }
+        model(&t, m, Some(cup)).roll_from(Vec2::new(x0, 0.0), Vec3::new(0.5 * (lo + hi), 0.0, 0.0))
+    };
+    // a pitch from x0 whose first touchdown (no hole) is at x_land, found by its speed
+    let pitch_to = |x0: f64, y: f64, la: f64, rpm: f64, x_land: f64, cup: Cup| {
+        let (mut lo, mut hi) = (5.0, 90.0);
+        for _ in 0..50 {
+            let mid = 0.5 * (lo + hi);
+            let o = model(&t, m, None).play(Vec2::new(x0, y), &LaunchConditions::from_monitor(mid, la, 0.0, rpm, 0.0));
+            if o.first_contact.map_or(0.0, |c| c.x) < x_land { lo = mid } else { hi = mid }
+        }
+        model(&t, m, Some(cup)).play(Vec2::new(x0, y), &LaunchConditions::from_monitor(0.5 * (lo + hi), la, 0.0, rpm, 0.0))
+    };
+    let hit_pin = |o: &Outcome| has(o, EventKind::Flagstick);
+    let mut shots = Vec::new();
+    let mut add = |label: &str, o: Outcome, ok: bool, what: &str| {
+        let end = match o.state {
+            RestState::Holed => "holed".to_string(),
+            _ => format!("stopped {:.2} m from the hole ({})", (o.rest.xy() - Vec2::new(d, 0.0)).len(), if o.rest.x < d { "short" } else { "past" }),
+        };
+        let pin = if hit_pin(&o) { "hit the flagstick, " } else { "" };
+        shots.push(shot_json(label, &o, Some((ok, format!("{pin}{end}. {what}")))));
+    };
+    let o = roll_to(0.0, 2.6, game);
+    let ok = o.state == RestState::Holed && hit_pin(&o);
+    add("chip from the fringe, firm: 2.6 m/s at the hole, flagstick in", o, ok, "The pin takes the pace off and the ball drops.");
+    let o = roll_to(3.0, 2.6, game);
+    let ok = o.state != RestState::Holed && !hit_pin(&o);
+    add("the same pace putted from the green, flagstick out", o, ok, "Over the 2.0 m/s cap with no pin to stop it: lips out.");
+    let o = pitch_to(d - 30.0, 0.0, 34.0, 7000.0, d, game);
+    let ok = o.state == RestState::Holed;
+    add("pitch from 30 m dunked onto the pin", o, ok, "Comes down on the flagstick and falls into the cup.");
+    let o = pitch_to(d - 30.0, 0.07, 34.0, 7000.0, d, game);
+    let ok = o.state == RestState::Holed;
+    add("pitch dunked 7 cm beside the pin", o, ok, "Straight into the gap between the pin and the liner: holed when it goes below the rim (or touches the bottom).");
+    let o = pitch_to(d - 30.0, 0.0, 34.0, 7000.0, d, forced_out);
+    let ok = o.state == RestState::Holed;
+    add("the same dunk with the flagstick out (forced, for comparison)", o, ok, "Into the back wall below the rim: holed, no bounce-out.");
+    let o = pitch_to(d - 30.0, 0.0, 34.0, 7000.0, d + r * 0.95, game);
+    add("pitch aimed to land on the far lip", o, true, "Coming down at about 45°, it reaches the flagstick before the far lip; physics decides from there.");
+    let o = pitch_to(d - 8.0, 0.0, 12.0, 3000.0, d + 3.0, game);
+    let ok = hit_pin(&o);
+    add("low chip flying at the pin, would land 3 m past", o, ok, "Hits the flagstick in the air and rebounds; the backspin it still carries now turns it back the way it came when it lands.");
+    json!({"id": "pin", "title": "Flagstick and dunks", "units": "m", "topview": true, "slowmo": true,
+        "question": "Does the flagstick stop a firm chip, do dunks drop, and is the flagstick in or out by the game's rule?",
+        "expect": "The flagstick is in for any shot from off the green and out for any shot on it (D52). It is a 25 mm pole, 2.13 m tall, flexible and loose in its ferrule, so it soaks up most of the pace (restitution 0.12), so a firm chip that hits it loses most of its pace and drops. A ball coming down over the hole goes straight to the cup model: dunks onto the pin or beside it fall in, and touching the bottom is holed (D50). A ball can still be thrown out by the rim itself.",
+        "cup": [d, 0.0], "cups": [{"r": r, "fill": true}], "cup_label": "10-inch game cup, flagstick in the middle", "pin": true,
+        "window": {"x": [d - 1.6, d + 1.6], "y": [-0.6, 0.6], "z": [-0.12, 2.3]},
+        "profile": json!([[d - 1.6, 0.0, 1], [d - r, 0.0, 1], [d - r, -golf_ground::cup::CUP_DEPTH_M, 0], [d + r, -golf_ground::cup::CUP_DEPTH_M, 0], [d + r, 0.0, 1], [d + 1.6, 0.0, 1]]),
+        "profile_note": "Section through the cup's centre; the flagstick stands 2.13 m.",
+        "shots": shots})
+}
+
 fn capture_map(m: &GroundMaterials) -> Value {
     use golf_core::ball::{CUP_RADIUS_M, GAME_CUP_RADIUS_M};
     let cups = [("Regulation 4.25 in", CUP_RADIUS_M, None), ("10 in, no cap", GAME_CUP_RADIUS_M, None), ("Game: 10 in, 2.0 m/s cap", GAME_CUP_RADIUS_M, golf_ground::GAME_CAPTURE_CAP_MPS)];
@@ -457,7 +524,7 @@ fn cup_table() -> Value {
 
 pub fn run() -> Result<(), String> {
     let m = GroundMaterials::builtin();
-    let scenarios = vec![ridge(&m), bowl(&m), cliff(&m), face(&m), cross_slope(&m), lip_outs(&m), rim_rides(&m), wedges(&m), backstop(&m)];
+    let scenarios = vec![ridge(&m), bowl(&m), cliff(&m), face(&m), cross_slope(&m), lip_outs(&m), rim_rides(&m), flagstick(&m), wedges(&m), backstop(&m)];
     for s in &scenarios {
         println!("== {}", s["title"].as_str().unwrap_or(""));
         for sh in s["shots"].as_array().unwrap() {
@@ -486,7 +553,7 @@ mod tests {
     #[test]
     fn every_ground_lab_shot_behaves_as_predicted() {
         let m = GroundMaterials::builtin();
-        for s in [ridge(&m), bowl(&m), cliff(&m), face(&m), cross_slope(&m), lip_outs(&m), rim_rides(&m), wedges(&m), backstop(&m)] {
+        for s in [ridge(&m), bowl(&m), cliff(&m), face(&m), cross_slope(&m), lip_outs(&m), rim_rides(&m), flagstick(&m), wedges(&m), backstop(&m)] {
             for sh in s["shots"].as_array().unwrap() {
                 let v = &sh["verdict"];
                 assert!(v["ok"].as_bool().unwrap_or(true), "{} / {}: {}", s["title"], sh["label"], v["text"]);

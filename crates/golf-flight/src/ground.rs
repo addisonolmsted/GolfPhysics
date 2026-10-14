@@ -8,6 +8,8 @@ use golf_course::Course;
 pub enum Surface {
     Ground,
     Water,
+    /// the cup's opening (only with a hole in play): golf-ground's cup model takes the ball
+    Hole,
 }
 
 pub trait Ground {

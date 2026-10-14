@@ -206,3 +206,43 @@ fn random_shots_on_every_fixture_end_cleanly() {
         }
     }
 }
+
+#[test]
+fn the_flagstick_is_in_from_off_the_green_and_out_on_it() {
+    let m = GroundMaterials::builtin();
+    let d = 3.0;
+    // a firm roll into the hole: off the green the pin stops it and it drops; on the green it lips out
+    let into_hole = |class: SurfaceClass| {
+        let plane = TestPlane::flat(class);
+        let a = m.get(class).base_decel();
+        let b = BallModel::new(&plane, &m, AeroParams::builtin(), Air::trackman_normal(), Wind::CALM, Some(Cup::game(Vec2::new(d, 0.0), 0.0)));
+        b.roll_from(Vec2::ZERO, Vec3::new((2.6f64 * 2.6 + 2.0 * a * d).sqrt(), 0.0, 0.0))
+    };
+    let off = into_hole(SurfaceClass::FAIRWAY);
+    assert!(off.events.iter().any(|e| e.kind == EventKind::Flagstick));
+    assert_eq!(off.state, RestState::Holed);
+    let on = into_hole(SurfaceClass::GREEN);
+    assert!(!on.events.iter().any(|e| e.kind == EventKind::Flagstick));
+    assert_ne!(on.state, RestState::Holed);
+}
+
+#[test]
+fn a_pitch_coming_down_in_the_hole_is_holed() {
+    let m = GroundMaterials::builtin();
+    let plane = TestPlane::flat(SurfaceClass::FAIRWAY);
+    let d = 30.0;
+    let model = |cup| BallModel::new(&plane, &m, AeroParams::builtin(), Air::trackman_normal(), Wind::CALM, cup);
+    // the speed that lands the pitch (no hole) at the cup, 7 cm beside the pin's line
+    let (mut lo, mut hi) = (5.0, 90.0);
+    for _ in 0..50 {
+        let mid = 0.5 * (lo + hi);
+        let o = model(None).play(Vec2::new(0.0, 0.07), &LaunchConditions::from_monitor(mid, 34.0, 0.0, 7000.0, 0.0));
+        if o.first_contact.map_or(0.0, |c| c.x) < d { lo = mid } else { hi = mid }
+    }
+    for pin in [Some(true), Some(false)] {
+        let cup = Cup { flagstick: pin, ..Cup::game(Vec2::new(d, 0.0), 0.0) };
+        let o = model(Some(cup)).play(Vec2::new(0.0, 0.07), &LaunchConditions::from_monitor(0.5 * (lo + hi), 34.0, 0.0, 7000.0, 0.0));
+        assert_eq!(o.state, RestState::Holed, "flagstick {pin:?}");
+        assert!(!o.events.iter().any(|e| matches!(e.kind, EventKind::Bounce { .. })), "no bounce on the hole");
+    }
+}

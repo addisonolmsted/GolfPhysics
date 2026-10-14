@@ -30,6 +30,7 @@ pub enum EventKind {
     StartRoll,
     Liftoff,
     LipOut,
+    Flagstick,
     Holed,
     Water,
     Plug,

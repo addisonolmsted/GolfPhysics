@@ -152,6 +152,11 @@ function sideView(sc, shots) {
     c.svg.append(el("svg:path", { d, fill: css("--ground"), stroke: "none" }));
     for (let i = 1; i < prof.length; i++) c.svg.append(el("svg:line", { x1: c.sx(prof[i - 1][0]), y1: c.sy(prof[i - 1][1]), x2: c.sx(prof[i][0]), y2: c.sy(prof[i][1]), stroke: classColor(prof[i - 1][2]), "stroke-width": 4 }));
   }
+  if (sc.pin && sc.cup) {
+    const px = c.sx(sc.cup[0]), w = Math.max(2, c.sx(sc.cup[0] + 0.0127) - c.sx(sc.cup[0] - 0.0127));
+    c.svg.append(el("svg:rect", { x: px - w / 2, y: c.sy(2.134), width: w, height: c.sy(-0.1) - c.sy(2.134), fill: css("--muted") }));
+    c.svg.append(el("svg:path", { d: `M ${px} ${c.sy(2.134)} l 34 8 l -34 8 z`, fill: "#f4c430" }));
+  }
   return { ...c, xmin, xmax, zmin, zmax, kind: "side" };
 }
 
@@ -171,6 +176,7 @@ function topView(sc, shots) {
       c.svg.append(el("svg:ellipse", { cx: c.sx(cx), cy: c.sy(cy), rx, ry, fill: k.fill ? css("--ink") : "none", stroke: k.fill ? "none" : css("--ref"), "stroke-dasharray": k.fill ? null : "5 4", "stroke-width": 1.5, "fill-opacity": sc.window ? 0.18 : 0.85 }));
     }
     c.svg.append(el("svg:text", { x: c.sx(cx) + 8, y: c.sy(cy + big) - 6, text: sc.cup_label || "" }));
+    if (sc.pin) c.svg.append(el("svg:circle", { cx: c.sx(cx), cy: c.sy(cy), r: Math.max(2, c.sx(cx + 0.0127) - c.sx(cx)), fill: css("--surface"), stroke: css("--muted") }));
   }
   return { ...c, ...b, kind: "top" };
 }
@@ -190,6 +196,7 @@ function drawPaths(view, shots) {
       if (e.kind === "bounce") g.append(el("svg:circle", { cx: x, cy: y, r: 3, fill: css("--surface"), stroke: s.color, "stroke-width": 1.5 }));
       else if (e.kind === "airborne") g.append(el("svg:path", { d: `M ${x} ${y - 9} l -5 8 l 10 0 z`, fill: css("--ref") }));
       else if (e.kind === "rest" || e.kind === "holed") g.append(el("svg:rect", { x: x - 4, y: y - 4, width: 8, height: 8, fill: s.color }));
+      else if (e.kind === "flagstick") g.append(el("svg:path", { d: `M ${x - 5} ${y - 5} l 10 10 m 0 -10 l -10 10`, stroke: css("--bad"), "stroke-width": 2 }));
       else if (e.kind === "lip-out") g.append(el("svg:circle", { cx: x, cy: y, r: 5, fill: "none", stroke: css("--ref"), "stroke-width": 2 }));
     }
     const ball = el("svg:circle", { cx: P(pts[0])[0], cy: P(pts[0])[1], r: 5, fill: css("--surface"), stroke: s.color, "stroke-width": 2, opacity: 0 });
@@ -242,6 +249,7 @@ function keys() {
   add(mk(el("svg:path", { d: "M 7 2 l -5 9 l 10 0 z", fill: css("--ref") })), "goes airborne");
   add(mk(el("svg:rect", { x: 3, y: 3, width: 8, height: 8, fill: css("--muted") })), "rest / holed");
   add(mk(el("svg:circle", { cx: 7, cy: 7, r: 5, fill: "none", stroke: css("--ref"), "stroke-width": 2 })), "lip-out");
+  add(mk(el("svg:path", { d: "M 2 2 l 10 10 m 0 -10 l -10 10", stroke: css("--bad"), "stroke-width": 2 })), "hits the flagstick");
   return k;
 }
 

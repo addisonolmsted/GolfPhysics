@@ -13,6 +13,8 @@ use golf_core::{Vec2, Vec3};
 use golf_flight::State;
 
 use crate::record::{EventKind, Phase, Recorder};
+use crate::roll::Cup;
+use golf_flight::{PIN_COR, PIN_HEIGHT_M, PIN_MU, PIN_RADIUS_M};
 
 pub const CUP_DT_S: f64 = 2e-5;
 /// the liner's depth (Rules: at least 4 inches)
@@ -84,10 +86,33 @@ fn contact(nrm: Vec3, pen: f64, v: Vec3, w: Vec3, e: f64, mu: f64, rr_decel: f64
     fn_
 }
 
+/// A ball hitting the flagstick, whose outward normal at the contact is `n`: the normal velocity reverses with the
+/// pole's restitution, and Coulomb friction on the contact point's slip (at most mu times the normal impulse) slows
+/// it along the pole and changes its spin. Velocities and spin in any frame.
+pub fn pin_impulse(s: State, n: Vec3) -> State {
+    let inertia = INERTIA_K * MASS_KG * RADIUS_M * RADIUS_M;
+    let vn = s.v.dot(n);
+    if vn >= 0.0 {
+        return s;
+    }
+    let rc = n * -RADIUS_M;
+    let slip = s.v + s.w.cross(rc) - n * vn;
+    let sl = slip.len();
+    let jn = -(1.0 + PIN_COR) * vn * MASS_KG;
+    // the tangential impulse that would stop the slip, with the ball's rolling inertia
+    let jt = (sl * MASS_KG / (1.0 + 1.0 / INERTIA_K)).min(PIN_MU * jn);
+    let jt_v = if sl > 1e-9 { slip * (-jt / sl) } else { Vec3::ZERO };
+    State { v: s.v + (n * jn + jt_v) / MASS_KG, w: s.w + rc.cross(jt_v) / inertia, ..s }
+}
+
 /// Simulate the ball at the hole from `s0` (world frame) until it is holed or leaves. `n` is the terrain normal at
-/// the cup centre `o` (on the ground), `radius` the rim's radius, `rr_decel` the green's rolling resistance, `pull`
-/// the share of gravity acting while the ball is over the hole (the game cup's speed cap, `Cup::hole_pull`).
-pub fn at_the_cup(o: Vec3, n: Vec3, radius: f64, rr_decel: f64, pull: f64, s0: State, rec: &mut Recorder) -> (CupEnd, State) {
+/// the cup centre `o` (on the ground), `rr_decel` the green's rolling resistance. `rolling`: the ball arrives along
+/// the green (else from the air: a dunk, or a bounce near the hole). The game cup's speed cap (`Cup::hole_pull`)
+/// applies to rolling arrivals, and again after the flagstick has slowed a ball.
+pub fn at_the_cup(cup: &Cup, o: Vec3, n: Vec3, rr_decel: f64, rolling: bool, s0: State, rec: &mut Recorder) -> (CupEnd, State) {
+    let radius = cup.radius_m;
+    let pin = cup.pin_in();
+    let mut pull = if rolling { cup.hole_pull(s0.v.len()) } else { 1.0 };
     let x = if n.x.abs() < 0.9 { Vec3::new(1.0, 0.0, 0.0) } else { Vec3::new(0.0, 1.0, 0.0) };
     let e1 = (x - n * x.dot(n)).norm();
     let fr = Frame { e1, e2: n.cross(e1), n };
@@ -95,12 +120,12 @@ pub fn at_the_cup(o: Vec3, n: Vec3, radius: f64, rr_decel: f64, pull: f64, s0: S
     // geometry uses the contact ball (D49); spin, inertia and the contact point's slip use the real one
     let g = fr.to_local(Vec3::new(0.0, 0.0, -G_MPS2));
     let mut c = fr.to_local(s0.p - o);
-    // start resting on the green at the spring's equilibrium
-    if c.z <= RC + 1e-3 {
-        c.z = RC - MASS_KG * -g.z / STIFFNESS;
-    }
     let mut v = fr.to_local(s0.v);
-    v.z = v.z.max(0.0);
+    // a rolling ball starts resting on the green at the spring's equilibrium
+    if rolling && c.z <= RC + 1e-3 {
+        c.z = RC - MASS_KG * -g.z / STIFFNESS;
+        v.z = v.z.max(0.0);
+    }
     let mut w = fr.to_local(s0.w);
     let mut t = s0.t;
     let world = |c: Vec3, v: Vec3, w: Vec3, t: f64| State { t, p: o + fr.to_world(c), v: fr.to_world(v), w: fr.to_world(w) };
@@ -163,6 +188,16 @@ pub fn at_the_cup(o: Vec3, n: Vec3, radius: f64, rr_decel: f64, pull: f64, s0: S
             }
         }
         v += f / MASS_KG * CUP_DT_S;
+        // The flagstick, standing in the middle of the cup: an impulse with its restitution and Coulomb friction on
+        // the contact point's slip (a spring contact that can only push would return about twice the restitution).
+        // After it, the cap's pull follows the speed the ball leaves with.
+        if pin && c.z < PIN_HEIGHT_M + RC && rho < RC + PIN_RADIUS_M && v.dot(dir) < 0.0 {
+            rec.event(&world(c, v, w, t), EventKind::Flagstick);
+            let after = pin_impulse(State { t, p: Vec3::ZERO, v, w }, dir);
+            v = after.v;
+            w = after.w;
+            pull = cup.hole_pull(Vec2::new(v.x, v.y).len());
+        }
         w += tq / inertia * CUP_DT_S;
         c += v * CUP_DT_S;
         t += CUP_DT_S;

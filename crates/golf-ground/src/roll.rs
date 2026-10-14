@@ -28,23 +28,40 @@ pub struct Cup {
     pub radius_m: f64,
     /// a big game cup captures fast putts (2.5 m/s through the centre at 10 inches with the 2x ball); a cap keeps pace mattering
     pub capture_cap_mps: Option<f64>,
+    /// the flagstick: None follows the game's rule (D52: in from off the green, out on it), Some forces it
+    pub flagstick: Option<bool>,
 }
 
 impl Cup {
     /// the regulation 108 mm cup
     pub fn regulation(xy: Vec2, z: f64) -> Cup {
-        Cup { xy, z, radius_m: CUP_RADIUS_M, capture_cap_mps: None }
+        Cup { xy, z, radius_m: CUP_RADIUS_M, capture_cap_mps: None, flagstick: None }
     }
 
     /// the game's cup (D47, D51): 10 inches across, capture speed capped at GAME_CAPTURE_CAP_MPS
     pub fn game(xy: Vec2, z: f64) -> Cup {
-        Cup { xy, z, radius_m: golf_core::ball::GAME_CUP_RADIUS_M, capture_cap_mps: GAME_CAPTURE_CAP_MPS }
+        Cup { xy, z, radius_m: golf_core::ball::GAME_CUP_RADIUS_M, capture_cap_mps: GAME_CAPTURE_CAP_MPS, flagstick: None }
     }
 
     /// the fastest a ball crossing on a line b from the centre can drop (the simple estimate; cup.rs decides)
     pub fn capture_speed(&self, b: f64) -> f64 {
         let v = capture_speed_for(b, self.radius_m);
         self.capture_cap_mps.map_or(v, |c| v.min(c))
+    }
+
+    /// the same cup with the flagstick settled for a shot starting on `start_class` (D52): in from anywhere off the
+    /// green (the collar included), out on it, unless forced
+    pub fn for_shot(&self, start_class: SurfaceClass) -> Cup {
+        Cup { flagstick: Some(self.flagstick.unwrap_or(start_class != SurfaceClass::GREEN)), ..*self }
+    }
+
+    pub fn pin_in(&self) -> bool {
+        self.flagstick == Some(true)
+    }
+
+    /// what the flight needs: the opening and the flagstick
+    pub fn hole(&self, ground_z: f64) -> golf_flight::Hole {
+        golf_flight::Hole { xy: self.xy, z: ground_z, radius: self.radius_m, pin_in: self.pin_in() }
     }
 
     /// How much of gravity pulls a ball into the hole, by its speed when it reaches the hole (D47). 1 without a cap.
@@ -201,8 +218,7 @@ pub fn roll<T: Terrain + ?Sized>(terrain: &T, mats: &GroundMaterials, s0: State,
         {
             let cn = Vec3::new(-csf.dzdx, -csf.dzdy, 1.0).norm();
             let rr = mats.get(terrain.class_at(c.xy.x, c.xy.y)).base_decel();
-            let pull = c.hole_pull(s.v.len());
-            let (end, r) = crate::cup::at_the_cup(c.xy.extend(csf.z), cn, c.radius_m, rr, pull, s, rec);
+            let (end, r) = crate::cup::at_the_cup(&c, c.xy.extend(csf.z), cn, rr, true, s, rec);
             s = r;
             match end {
                 CupEnd::Holed => return (RollEnd::Holed, s),

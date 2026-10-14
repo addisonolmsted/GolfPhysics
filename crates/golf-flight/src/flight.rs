@@ -7,6 +7,7 @@ use golf_core::{Air, LaunchConditions, Vec3};
 
 use crate::aero::{AeroParams, Prepared};
 use crate::ground::{Ground, Surface};
+use crate::hole::Hole;
 use crate::wind::Wind;
 
 /// The fixed step. RK4 with the wind taken at each stage's own height is 4th order: against a 0.25 ms reference
@@ -36,6 +37,8 @@ pub struct State {
 pub enum End {
     /// the ball touched the ground or water: hand over to golf-ground
     Contact { surface: Surface, ground_z: f64 },
+    /// it hit the flagstick: the state is at the contact, `normal` the pole's outward normal there
+    Flagstick { normal: Vec3 },
     /// it flew past every height tier
     OffWorld,
     Timeout,
@@ -152,17 +155,38 @@ impl<'a> Model<'a> {
 
     /// Fly from a ball resting on the ground at `start` (x, y; z is taken from the ground) until it touches down.
     pub fn fly(&self, start: golf_core::Vec2, launch: &LaunchConditions) -> Flight {
+        self.fly_at(start, launch, None)
+    }
+
+    /// `fly` with the hole in play: its opening (contact over it is `Surface::Hole`) and the flagstick if in
+    pub fn fly_at(&self, start: golf_core::Vec2, launch: &LaunchConditions, hole: Option<&Hole>) -> Flight {
         let z0 = self.ground.contact(start.x, start.y).map_or(0.0, |g| g.0);
         let s0 = State { t: 0.0, p: start.extend(z0 + CONTACT_RADIUS_M), v: launch.velocity(), w: launch.spin() };
-        self.fly_from(s0)
+        self.fly_from_at(s0, hole)
     }
 
     /// Fly from any state (a launch, or a bounce hop handed back by golf-ground).
     pub fn fly_from(&self, s0: State) -> Flight {
+        self.fly_from_at(s0, None)
+    }
+
+    /// the ground under (x, y), or the cup's opening at rim height when the ball is within reach of it
+    #[inline]
+    fn contact_at(&self, x: f64, y: f64, hole: Option<&Hole>) -> Option<(f64, Surface)> {
+        if let Some(h) = hole
+            && h.over(golf_core::Vec2::new(x, y))
+        {
+            return Some((h.z, Surface::Hole));
+        }
+        self.ground.contact(x, y)
+    }
+
+    /// `fly_from` with the hole in play
+    pub fn fly_from_at(&self, s0: State, hole: Option<&Hole>) -> Flight {
         let mut s = s0;
         let mut apex = s0;
         let mut samples = vec![s0];
-        let mut gz = self.ground.contact(s.p.x, s.p.y).map_or(s.p.z - CONTACT_RADIUS_M, |g| g.0);
+        let mut gz = self.contact_at(s.p.x, s.p.y, hole).map_or(s.p.z - CONTACT_RADIUS_M, |g| g.0);
         let mut next_check = 0.0;
         // leave the ground before testing for contact (the launch starts touching it): 1 cm of clearance or 50 ms,
         // whichever comes first. A hop off a slope can start a hair below the surface and never clear 1 cm; without
@@ -173,9 +197,16 @@ impl<'a> Model<'a> {
             if n.p.z > apex.p.z {
                 apex = n;
             }
+            if let Some(h) = hole
+                && let Some((frac, normal)) = h.pin_hit(s.p, n.p)
+            {
+                let c = self.rk4(&s, self.dt_s * frac, s.p.z - gz);
+                samples.push(c);
+                return Flight { samples, apex, last: c, end: End::Flagstick { normal }, launch: s0 };
+            }
             // query the ground only when it could be within reach
             if n.t >= next_check || !airborne {
-                match self.ground.contact(n.p.x, n.p.y) {
+                match self.contact_at(n.p.x, n.p.y, hole) {
                     None => return Flight { samples, apex, last: n, end: End::OffWorld, launch: s0 },
                     Some((g, surf)) => {
                         gz = g;
@@ -185,7 +216,7 @@ impl<'a> Model<'a> {
                         }
                         // in contact: or, before that, more than 2 cm into the ground
                         if (airborne && clear <= 0.0) || clear < -0.02 {
-                            let (c, g, surf) = self.bisect(&s, g, surf);
+                            let (c, g, surf) = self.bisect(&s, g, surf, hole);
                             samples.push(c);
                             return Flight { samples, apex, last: c, end: End::Contact { surface: surf, ground_z: g }, launch: s0 };
                         }
@@ -203,13 +234,13 @@ impl<'a> Model<'a> {
     }
 
     /// the contact inside the step that starts at `s`: a fixed number of halvings of the step length
-    fn bisect(&self, s: &State, mut g: f64, mut surf: Surface) -> (State, f64, Surface) {
+    fn bisect(&self, s: &State, mut g: f64, mut surf: Surface, hole: Option<&Hole>) -> (State, f64, Surface) {
         let (mut lo, mut hi) = (0.0, self.dt_s);
         let z_agl = s.p.z - g;
         for _ in 0..BISECT_ITERS {
             let mid = 0.5 * (lo + hi);
             let m = self.rk4(s, mid, z_agl);
-            let (gm, sm) = self.ground.contact(m.p.x, m.p.y).unwrap_or((g, surf));
+            let (gm, sm) = self.contact_at(m.p.x, m.p.y, hole).unwrap_or((g, surf));
             if m.p.z - CONTACT_RADIUS_M - gm > 0.0 {
                 lo = mid;
             } else {

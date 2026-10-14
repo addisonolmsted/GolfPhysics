@@ -7,9 +7,11 @@
 pub mod aero;
 pub mod flight;
 pub mod ground;
+pub mod hole;
 pub mod wind;
 
 pub use aero::AeroParams;
 pub use flight::{End, Flight, Model, State};
 pub use ground::{Flat, Ground, Surface};
+pub use hole::{Hole, PIN_COR, PIN_HEIGHT_M, PIN_MU, PIN_RADIUS_M};
 pub use wind::Wind;

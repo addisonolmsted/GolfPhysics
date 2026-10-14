@@ -37,7 +37,8 @@ Updated 2026-10-11. Read this first when picking the work up in a new session.
   slope, tour wedges and a backstop, all behaving as predicted (a test guards them). It led to green tilt 18° (D44),
   the tilt cap (D45) and the liftoff fix (D46). The hole is a physical model (rim, wall, bottom: D48), with
   lip-outs and rim rides. The ball is **2x** for display and contact (D49); the **game cup is 10 inches** with a
-  2.0 m/s cap (D51); touching the bottom is holed (D50). Revisit the cup with the pilot's putting data.
+  2.0 m/s cap (D51); touching the bottom is holed (D50). The flagstick is in from off the green and
+  out on it, and physical; slam dunks go to the cup model (D52). Revisit the cup with the pilot's putting data.
 - **Next: M4, impact and clubs** (D-plane, the club table, lie effects, the per-club face/path → curve
   calibration).
 - **Carry into M7:** speed for the putting assist (6-10 putts per stroke at ~0.47 ms each): a patch cache or a

@@ -21,7 +21,7 @@ fn main() {
             for j in 0..20 {
                 let b = r * j as f64 * 0.05;
                 let d = 0.5;
-                let cup = Cup { xy: Vec2::new(d, b), z: 0.0, radius_m: r, capture_cap_mps: cap };
+                let cup = Cup { xy: Vec2::new(d, b), z: 0.0, radius_m: r, capture_cap_mps: cap, flagstick: None };
                 let bm = BallModel::new(&green, &m, AeroParams::builtin(), Air::trackman_normal(), Wind::CALM, Some(cup));
                 let o = bm.roll_from(Vec2::ZERO, Vec3::new((v * v + 2.0 * a * d).sqrt(), 0.0, 0.0));
                 n += 1;

@@ -87,6 +87,25 @@ Everything else falls out of the contacts:
 feels less of gravity while over the hole, `(v0/v)^4` above v0, with v0 set so a centred putt drops up to the cap
 (`Cup::hole_pull`). It dips less and kicks off the far edge, as a too-fast putt does. Slow putts are untouched.
 
+**The flagstick** (D52) is **in for any shot from off the green** (the collar included) **and out for any shot on
+it**; `Cup::flagstick` can force it either way. It is a pole 25.4 mm thick and 2.13 m tall in the middle of the cup.
+A flexible fibreglass pole loose in its ferrule soaks up most of a ball's pace: restitution 0.12, friction 0.2 on
+the contact point's slip, which also changes the spin (`cup::pin_impulse`, one impulse for both places it is hit):
+
+- in flight (`golf_flight::Hole::pin_hit`, a swept test against the pole each 10 ms step, above the rim);
+- at the hole, inside the cup model. The cap's reduced pull is recomputed from the speed the ball leaves the pin
+  with, so a firm chip the pin has stopped falls normally.
+
+Measured: a ball rolling into the pin drops up to ~3.5 m/s at the hole (the same pace putted from the green, pin
+out, lips out over the 2.0 m/s cap); at 5 m/s it rebounds and stops ~20 cm short. A pitch at the pin in the air
+rebounds, and the backspin it still carries turns it back the way it came when it lands.
+
+**Slam dunks**: a ball coming down within reach of the opening (centre within the cup radius plus the contact
+radius) ends its flight at rim height as a `Surface::Hole` contact and goes to the cup model, from the air, with full
+gravity (the cap is for putts). Dunks onto the pin, beside it, or into the back wall with the pin out are holed:
+touching the bottom or going below the rim (D50). The rim can still throw a ball out. Before this, the height
+function had no hole and a ball landing on the cup bounced on it.
+
 Make rates (flat putts; start-line error σ 1° for a good phone putter and 2.5° for a casual one, pace error 8 % and
 15 %, aiming 0.4 m past; the error sizes are guesses until the pilot measures them):
 
@@ -155,8 +174,6 @@ fails if one stops behaving.
 
 ## Not yet
 
-- The flagstick (in or out is a game setting) and slam-dunks: a ball arriving in the air bounces on the height
-  function over the hole and is taken only once it rolls (`cup.rs` starts from rolling).
 - The putter's skid at the start of a putt (M4's putter impact); `roll_from` starts a putt already rolling.
 - Lips and walls (when `edges.json` exists), wet ground, grain on greens.
 - Lie-dependent variation inside a class (the lie layer, after M7).
