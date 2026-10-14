@@ -6,6 +6,7 @@
 //! golf-lab bench <bundle dir>      load time, raster memory, height-query cost
 //! golf-lab fit-aero               fit data/aero/ball.v1.json to the calibration reference
 //! golf-lab fit-impact             fit data/clubs/standard.v1.json to the TrackMan tour rows, check the rest
+//! golf-lab impact-lab             the Impact Lab page with the engine in WebAssembly (tools/impact-lab.sh)
 //! golf-lab table                  the model against every reference row and sniff band
 //! golf-lab ground-lab             the ground model on shaped terrain: out/viewer/ground.html
 //! golf-lab view                   write the flight viewer to out/viewer/flight.html
@@ -17,6 +18,7 @@ mod calib;
 mod fit;
 mod groundlab;
 mod impactfit;
+mod impactlab;
 mod table;
 mod view;
 #[cfg(feature = "conform")]
@@ -33,7 +35,7 @@ fn main() -> ExitCode {
     let path = PathBuf::from(args.get(1).cloned().unwrap_or_default());
     let needs_path = matches!(cmd, "smoke" | "tees" | "bench" | "conform");
     if cmd.is_empty() || (needs_path && args.len() < 2) {
-        eprintln!("usage: golf-lab <smoke|tees|bench|conform> <path> | golf-lab <fit-aero|fit-impact|table|view|ground-lab>");
+        eprintln!("usage: golf-lab <smoke|tees|bench|conform> <path> | golf-lab <fit-aero|fit-impact|impact-lab|table|view|ground-lab>");
         return ExitCode::from(2);
     }
     let r = match cmd {
@@ -45,6 +47,7 @@ fn main() -> ExitCode {
             fit::run(only, args.iter().any(|a| a == "--dry"))
         }
         "fit-impact" => impactfit::run(),
+        "impact-lab" => impactlab::run(),
         "table" => table::run(),
         "view" => view::run(),
         "ground-lab" => groundlab::run(),

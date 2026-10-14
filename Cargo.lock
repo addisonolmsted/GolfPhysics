@@ -331,6 +331,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "golf-wasm"
+version = "0.0.0"
+dependencies = [
+ "golf-core",
+ "golf-course",
+ "golf-flight",
+ "golf-ground",
+ "golf-impact",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"

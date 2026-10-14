@@ -1,0 +1,18 @@
+[package]
+name = "golf-wasm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+# The engine in a browser, for the lab pages: impact, flight, bounce and roll behind a few C-ABI functions (no
+# bindings generator). Build: cargo build --release -p golf-wasm --target wasm32-unknown-unknown
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+golf-core = { workspace = true }
+golf-course = { workspace = true }
+golf-flight = { workspace = true }
+golf-ground = { workspace = true }
+golf-impact = { workspace = true }

@@ -1,0 +1,376 @@
+<title>Impact Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: the delivery on the left (club, sliders, the clubface for the strike point, lie, slope, wind), what it
+   makes on the right (launch numbers, the D-plane from above and the side, the flight from above and the side). The
+   engine itself runs in the page (golf-impact, golf-flight and golf-ground compiled to WebAssembly). */
+:root {
+  --bg: #f1f4ef; --surface: #ffffff; --ink: #1b2822; --muted: #5d6b64; --line: #d3dbd5; --grid: #e6ece7;
+  --accent: #1d6bb0; --path: #c45a17; --face: #1b2822; --ball: #1d6bb0; --good: #2c7a4b; --bad: #b3261e;
+  --chip: #f5f8f4; --ghost: #9aa8a0; --roll: #2c7a4b;
+  --display: "Barlow Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
+  --body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111814; --surface: #18211c; --ink: #e2eae4; --muted: #94a59b; --line: #2b3831; --grid: #1f2a24;
+    --accent: #5eaaf0; --path: #f08c4a; --face: #e2eae4; --ball: #5eaaf0; --good: #5cc18a; --bad: #f2786c;
+    --chip: #1f2a24; --ghost: #5d6b64; --roll: #5cc18a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111814; --surface: #18211c; --ink: #e2eae4; --muted: #94a59b; --line: #2b3831; --grid: #1f2a24;
+  --accent: #5eaaf0; --path: #f08c4a; --face: #e2eae4; --ball: #5eaaf0; --good: #5cc18a; --bad: #f2786c;
+  --chip: #1f2a24; --ghost: #5d6b64; --roll: #5cc18a; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--body); }
+.wrap { max-width: 1280px; margin: 0 auto; padding-inline: 16px; padding-block: 22px 44px; display: grid; gap: 16px; }
+h1 { font: 700 2.3rem/1 var(--display); margin: 0; }
+h2 { font: 600 1.05rem/1.2 var(--display); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin: 0; }
+.lede { color: var(--muted); margin: 0; max-width: 78ch; }
+.grid { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 900px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 14px; display: grid; gap: 12px; min-width: 0; }
+.controls { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 10px); }
+@media (max-width: 900px) { .controls { position: static; } }
+.ctl { display: grid; gap: 4px; }
+.ctl label, .lbl { font: 600 0.78rem/1 var(--display); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.ctl label output { font: 500 0.9rem/1 var(--mono); letter-spacing: 0; text-transform: none; color: var(--ink); }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+select { font: 500 0.92rem/1 var(--body); color: var(--ink); background: var(--chip); border: 1px solid var(--line); border-radius: 4px; padding: 7px 8px; width: 100%; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chips button, .btn { font: 600 0.88rem/1 var(--display); letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink); background: var(--chip); border: 1px solid var(--line); padding: 7px 9px; border-radius: 4px; cursor: pointer; }
+.chips button:hover, .btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); color: var(--surface); border-color: var(--accent); }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.derived { font: 400 0.82rem/1.4 var(--mono); color: var(--muted); }
+.face-wrap { display: grid; gap: 4px; }
+.face-wrap svg { cursor: crosshair; touch-action: none; }
+.readout { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.cell { background: var(--surface); padding: 8px 10px; display: grid; gap: 2px; }
+.cell .k { font: 600 0.72rem/1 var(--display); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.cell .v { font: 600 1.35rem/1.1 var(--display); font-variant-numeric: tabular-nums; }
+.cell .v small { font: 500 0.75rem/1 var(--mono); color: var(--muted); margin-left: 2px; }
+.dplane { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 560px) { .dplane { grid-template-columns: 1fr; } }
+svg { display: block; width: 100%; height: auto; max-width: 100%; }
+svg text { font-family: var(--mono); font-size: 11px; fill: var(--muted); }
+.keys { display: flex; flex-wrap: wrap; gap: 14px; font: 400 0.8rem/1.3 var(--mono); color: var(--muted); }
+.keys span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { display: inline-block; width: 16px; height: 3px; border-radius: 2px; }
+.err { color: var(--bad); font-weight: 600; }
+.note { color: var(--muted); font-size: 0.86rem; margin: 0; }
+footer { color: var(--muted); font-size: 0.85rem; }
+footer code { font-family: var(--mono); font-size: 0.8rem; }
+</style>
+
+<div class="wrap">
+  <header style="display:grid;gap:8px">
+    <h1>Impact Lab</h1>
+    <p class="lede">The GolfPhysics impact model (M4) with the real engine running in this page: the club's delivery goes through impact, then flight, bounce and roll on a flat fairway. Click the clubface to move the strike point. Angles: + is right (an open face, an in-to-out path) for a right-hander.</p>
+    <p class="err" id="err" hidden></p>
+  </header>
+  <div class="grid">
+    <section class="panel controls" aria-label="Delivery">
+      <div class="row2">
+        <div class="ctl"><span class="lbl">Club</span><select id="club" aria-label="Club"></select></div>
+        <div class="ctl"><span class="lbl">Delivery</span>
+          <div class="chips"><button type="button" id="tour">Tour</button><button type="button" id="ama">Amateur</button></div>
+        </div>
+      </div>
+      <div class="ctl"><label for="mph">Head speed <output id="mph-o"></output></label><input type="range" id="mph" min="30" max="130" step="0.5"></div>
+      <div class="ctl"><label for="loft">Dynamic loft <output id="loft-o"></output></label><input type="range" id="loft" min="0" max="70" step="0.1"></div>
+      <div class="ctl"><label for="attack">Attack angle <output id="attack-o"></output></label><input type="range" id="attack" min="-10" max="8" step="0.1"></div>
+      <div class="row2">
+        <div class="ctl"><label for="face">Face <output id="face-o"></output></label><input type="range" id="face" min="-12" max="12" step="0.1"></div>
+        <div class="ctl"><label for="path">Path <output id="path-o"></output></label><input type="range" id="path" min="-12" max="12" step="0.1"></div>
+      </div>
+      <div class="derived" id="derived"></div>
+      <div class="ctl"><span class="lbl">Shape</span>
+        <div class="chips" id="shapes"></div>
+      </div>
+      <div class="face-wrap">
+        <span class="lbl">Strike point <output id="strike-o" style="font:500 0.9rem var(--mono);text-transform:none;letter-spacing:0;color:var(--ink)"></output></span>
+        <svg id="facesvg" viewBox="0 0 260 130" role="img" aria-label="Clubface: click to set the strike point"></svg>
+        <div class="row2">
+          <input type="range" id="sx" min="-25" max="25" step="0.5" aria-label="Strike, heel to toe (mm)">
+          <input type="range" id="sy" min="-15" max="15" step="0.5" aria-label="Strike, low to high (mm)">
+        </div>
+      </div>
+      <div class="row2">
+        <div class="ctl"><span class="lbl">Lie</span><select id="lie" aria-label="Lie"></select></div>
+        <div class="ctl"><label for="wind">Wind <output id="wind-o"></output></label><input type="range" id="wind" min="0" max="30" step="1"></div>
+      </div>
+      <div class="ctl"><label for="wdir">Wind from <output id="wdir-o"></output></label><input type="range" id="wdir" min="0" max="345" step="15"></div>
+      <div class="row2">
+        <div class="ctl"><label for="up">Uphill <output id="up-o"></output></label><input type="range" id="up" min="-25" max="25" step="1"></div>
+        <div class="ctl"><label for="side">Ball above feet <output id="side-o"></output></label><input type="range" id="side" min="-25" max="25" step="1"></div>
+      </div>
+      <div class="chips"><button type="button" class="btn primary" id="keep">Keep shot</button><button type="button" class="btn" id="clear">Clear kept</button><button type="button" class="btn" id="reset">Reset lie, slope, wind, strike</button></div>
+    </section>
+
+    <section style="display:grid;gap:16px;min-width:0">
+      <div class="readout" id="readout"></div>
+      <div class="panel">
+        <h2>The D-plane</h2>
+        <div class="dplane">
+          <div><svg id="dtop" viewBox="0 0 320 220" role="img" aria-label="Face, path and start direction from above"></svg></div>
+          <div><svg id="dside" viewBox="0 0 320 220" role="img" aria-label="Loft, attack and launch from the side"></svg></div>
+        </div>
+        <div class="keys">
+          <span><i class="sw" style="background:var(--path)"></i>club path</span>
+          <span><i class="sw" style="background:var(--face)"></i>face (and its normal)</span>
+          <span><i class="sw" style="background:var(--ball)"></i>ball</span>
+          <span>from above: angles drawn ×3</span>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>The flight</h2>
+        <svg id="top" viewBox="0 0 1000 300" role="img" aria-label="Flight from above"></svg>
+        <svg id="sideview" viewBox="0 0 1000 260" role="img" aria-label="Flight from the side"></svg>
+        <div class="keys">
+          <span><i class="sw" style="background:var(--ball)"></i>in the air</span>
+          <span><i class="sw" style="background:var(--roll)"></i>bounce and roll</span>
+          <span><i class="sw" style="background:var(--ghost)"></i>kept shots</span>
+        </div>
+        <p class="note" id="scale-note"></p>
+      </div>
+    </section>
+  </div>
+  <footer>Built by <code>tools/impact-lab.sh</code>: <code>golf-wasm</code> (golf-impact, golf-flight, golf-ground) compiled to WebAssembly, with <code>data/clubs/standard.v1.json</code> and <code>data/materials/lie.v1.json</code>. Sea-level air, a flat fairway at stimp-free fairway speed, no assists.</footer>
+</div>
+
+<script>
+const DATA = /*__DATA__*/null;
+const WASM_B64 = "__WASM__";
+const NS = "http://www.w3.org/2000/svg";
+const $ = (id) => document.getElementById(id);
+const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const el = (tag, attrs = {}, kids = []) => {
+  const e = tag.startsWith("svg:") ? document.createElementNS(NS, tag.slice(4)) : document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) { if (v === null || v === undefined) continue; if (k === "text") e.textContent = v; else e.setAttribute(k, v); }
+  for (const k of kids) if (k) e.append(k);
+  return e;
+};
+const lr = (v, d = 1, unit = "°") => Math.abs(v) < 0.05 ? `0${unit}` : `${Math.abs(v).toFixed(d)}${unit} ${v > 0 ? "R" : "L"}`;
+const sgn = (v, d = 1) => `${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(d)}`;
+function niceStep(range, ticks) { const raw = range / ticks, p = Math.pow(10, Math.floor(Math.log10(raw))); return [1, 2, 2.5, 5, 10].map(m => m * p).find(s => s >= raw) || 10 * p; }
+
+let engine = null;
+const state = { club: 10, mph: 90, loft: 21.4, attack: -4.3, face: 0, path: 0, sx: 0, sy: 0, lie: 3, up: 0, side: 0, wind: 0, wdir: 0 };
+const kept = [];
+let last = null;
+
+async function boot() {
+  try {
+    const bin = Uint8Array.from(atob(WASM_B64), c => c.charCodeAt(0));
+    const { instance } = await WebAssembly.instantiate(bin, {});
+    engine = instance.exports;
+  } catch (e) {
+    $("err").hidden = false;
+    $("err").textContent = `The engine couldn't start in this browser (${e.message}). The page needs WebAssembly.`;
+    return;
+  }
+  const cs = $("club");
+  DATA.clubs.forEach((c, i) => cs.append(el("option", { value: i, text: `${c.name} (${c.loft}°)` })));
+  for (const l of DATA.lies) $("lie").append(el("option", { value: l.id, text: l.name }));
+  for (const [name, face, path] of [["Straight", 0, 0], ["Push", 3, 3], ["Pull", -3, -3], ["Fade", 0, -3], ["Draw", 0, 3], ["Push-fade", 2, -2], ["Pull-draw", -2, 2], ["Slice", 6, -4], ["Hook", -6, 4]]) {
+    const b = el("button", { type: "button", text: name });
+    b.addEventListener("click", () => { state.face = face; state.path = path; sync(); });
+    $("shapes").append(b);
+  }
+  let saved = null; try { saved = JSON.parse(localStorage.getItem("impactlab") || "null"); } catch (e) {}
+  if (saved && typeof saved === "object") Object.assign(state, saved); else delivery("tour");
+  for (const id of ["mph", "loft", "attack", "face", "path", "sx", "sy", "wind", "wdir", "up", "side"]) $(id).addEventListener("input", (e) => { state[id] = Number(e.target.value); sync(); });
+  cs.addEventListener("change", (e) => { state.club = Number(e.target.value); delivery("tour"); });
+  $("lie").addEventListener("change", (e) => { state.lie = Number(e.target.value); sync(); });
+  $("tour").addEventListener("click", () => delivery("tour"));
+  $("ama").addEventListener("click", () => delivery("ama"));
+  $("keep").addEventListener("click", () => { if (last) { kept.push({ ...last, label: `${DATA.clubs[state.club].id} ${sgn(state.face, 0)}/${sgn(state.path, 0)}` }); if (kept.length > 8) kept.shift(); draw(); } });
+  $("clear").addEventListener("click", () => { kept.length = 0; draw(); });
+  $("reset").addEventListener("click", () => { Object.assign(state, { sx: 0, sy: 0, lie: 3, up: 0, side: 0, wind: 0, wdir: 0 }); sync(); });
+  const fs = $("facesvg");
+  const setStrike = (ev) => {
+    const r = fs.getBoundingClientRect(), x = (ev.clientX - r.left) / r.width * 260, y = (ev.clientY - r.top) / r.height * 130;
+    state.sx = Math.max(-25, Math.min(25, Math.round((x - 130) / 4.4 * 2) / 2));
+    state.sy = Math.max(-15, Math.min(15, Math.round(-(y - 65) / 4.4 * 2) / 2));
+    sync();
+  };
+  let dragging = false;
+  fs.addEventListener("pointerdown", (e) => { dragging = true; fs.setPointerCapture(e.pointerId); setStrike(e); });
+  fs.addEventListener("pointermove", (e) => { if (dragging) setStrike(e); });
+  fs.addEventListener("pointerup", () => { dragging = false; });
+  const redraw = () => draw();
+  try { window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", redraw); } catch (e) {}
+  new MutationObserver(redraw).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  sync();
+}
+
+/* the tour delivery from the fit; the amateur one slower, with half the shaft lean */
+function delivery(kind) {
+  const c = DATA.clubs[state.club];
+  const ama = kind === "ama";
+  state.mph = Math.round((ama ? c.ama_mph : c.tour_mph) * 2) / 2;
+  state.attack = ama ? c.ama_attack : c.tour_attack;
+  state.loft = Math.round((c.loft + c.tour_lean * (ama ? 0.5 : 1)) * 10) / 10;
+  state.face = 0; state.path = 0;
+  sync();
+}
+
+let pending = false;
+function sync() {
+  for (const id of ["mph", "loft", "attack", "face", "path", "sx", "sy", "wind", "wdir", "up", "side"]) $(id).value = state[id];
+  $("club").value = state.club; $("lie").value = state.lie;
+  const c = DATA.clubs[state.club];
+  $("mph-o").textContent = `${state.mph.toFixed(1)} mph`;
+  $("loft-o").textContent = `${state.loft.toFixed(1)}° (static ${c.loft}°, ${sgn(state.loft - c.loft)}° lean)`;
+  $("attack-o").textContent = `${sgn(state.attack)}° ${state.attack < 0 ? "down" : "up"}`;
+  $("face-o").textContent = lr(state.face, 1).replace("R", "open").replace("L", "closed");
+  $("path-o").textContent = lr(state.path, 1).replace("R", "in-to-out").replace("L", "out-to-in");
+  $("strike-o").textContent = state.sx === 0 && state.sy === 0 ? "centre" : `${Math.abs(state.sx)} mm ${state.sx > 0 ? "toe" : "heel"}, ${Math.abs(state.sy)} mm ${state.sy >= 0 ? "high" : "low"}`;
+  $("wind-o").textContent = `${state.wind} mph`;
+  const dirs = { 0: "the target (into)", 90: "the right", 180: "behind (down)", 270: "the left" };
+  $("wdir-o").textContent = dirs[state.wdir] || `${state.wdir}° clockwise from the target`;
+  $("up-o").textContent = `${sgn(state.up, 0)} %`;
+  $("side-o").textContent = `${sgn(state.side, 0)} %`;
+  $("derived").textContent = `face to path ${sgn(state.face - state.path)}° · spin loft (vertical) ${(state.loft - state.attack).toFixed(1)}°`;
+  try { localStorage.setItem("impactlab", JSON.stringify(state)); } catch (e) {}
+  if (!pending) { pending = true; requestAnimationFrame(() => { pending = false; run(); }); }
+}
+
+function run() {
+  if (!engine) return;
+  const s = state;
+  const n = engine.shot(s.club, s.mph, s.attack, s.loft, s.face, s.path, s.sx, s.sy, s.lie, s.up, s.side, s.wind, s.wdir);
+  const f = new Float64Array(engine.memory.buffer, engine.out_ptr(), n).slice();
+  const k = ["ball", "launch", "dir", "spin", "axis", "smash", "spinloft", "cor", "carry", "carrySide", "apex", "land", "hang", "total", "totalSide", "n"];
+  const r = Object.fromEntries(k.map((name, i) => [name, f[i]]));
+  r.path = [];
+  for (let i = 0; i < r.n; i++) { const o = 16 + i * 5; r.path.push([f[o], f[o + 1], f[o + 2], f[o + 3], f[o + 4]]); }
+  last = r;
+  draw();
+}
+
+function draw() {
+  if (!last) return;
+  readout(last);
+  dTop(); dSide(); faceDiagram(); flight();
+}
+
+function readout(r) {
+  const cells = [
+    ["Ball speed", r.ball.toFixed(1), "mph"], ["Smash", r.smash.toFixed(2), ""], ["Launch", r.launch.toFixed(1), "°"],
+    ["Start", lr(r.dir, 1), ""], ["Spin", Math.round(r.spin).toLocaleString(), "rpm"], ["Spin axis", lr(r.axis, 1).replace("R", "fade").replace("L", "draw"), ""],
+    ["Spin loft", r.spinloft.toFixed(1), "°"], ["Carry", r.carry.toFixed(1), "yd"], ["Total", r.total.toFixed(1), "yd"],
+    ["Side at landing", lr(r.carrySide, 1, " yd"), ""], ["Apex", r.apex.toFixed(1), "yd"], ["Land angle", r.land.toFixed(0), "°"], ["Hang time", r.hang.toFixed(1), "s"],
+  ];
+  $("readout").replaceChildren(...cells.map(([k, v, u]) => el("div", { class: "cell" }, [el("span", { class: "k", text: k }), el("span", { class: "v" }, [document.createTextNode(v), u ? el("small", { text: u }) : null])])));
+}
+
+function arrow(svg, x0, y0, ang, len, color, width = 2.5, dash = null) {
+  const x1 = x0 + Math.sin(ang) * len, y1 = y0 - Math.cos(ang) * len;
+  svg.append(el("svg:line", { x1: x0, y1: y0, x2: x1, y2: y1, stroke: color, "stroke-width": width, "stroke-dasharray": dash, "stroke-linecap": "round" }));
+  const a = 0.45, h = 9;
+  svg.append(el("svg:path", { d: `M ${x1} ${y1} L ${x1 - Math.sin(ang - a) * h} ${y1 + Math.cos(ang - a) * h} L ${x1 - Math.sin(ang + a) * h} ${y1 + Math.cos(ang + a) * h} Z`, fill: color }));
+}
+
+/* from above: the target line up the page, angles exaggerated x3 so 2° reads */
+function dTop() {
+  const svg = $("dtop"); svg.replaceChildren();
+  const X = 3, cx = 160, cy = 160, rad = (d) => d * X * Math.PI / 180;
+  svg.append(el("svg:line", { x1: cx, y1: 205, x2: cx, y2: 12, stroke: css("--line"), "stroke-dasharray": "4 4" }));
+  svg.append(el("svg:text", { x: cx + 4, y: 22, text: "target" }));
+  // the path: the club travels through the ball
+  arrow(svg, cx - Math.sin(rad(state.path)) * 70, cy + Math.cos(rad(state.path)) * 70, rad(state.path), 70, css("--path"));
+  // the face: a line across the ball, square to its normal
+  const fa = rad(state.face), fx = Math.cos(fa) * 42, fy = Math.sin(fa) * 42;
+  svg.append(el("svg:line", { x1: cx - fx, y1: cy + 6 - fy, x2: cx + fx, y2: cy + 6 + fy, stroke: css("--face"), "stroke-width": 5, "stroke-linecap": "round" }));
+  arrow(svg, cx, cy, fa, 46, css("--face"), 1.2, "3 3");
+  // the ball's start
+  arrow(svg, cx, cy, rad(last.dir), 135, css("--ball"));
+  svg.append(el("svg:circle", { cx, cy, r: 5, fill: css("--surface"), stroke: css("--ink"), "stroke-width": 1.5 }));
+  svg.append(el("svg:text", { x: 8, y: 214, text: `start ${lr(last.dir)} · face ${lr(state.face)} · path ${lr(state.path)}` }));
+}
+
+/* from the side: forward to the right, angles true */
+function dSide() {
+  const svg = $("dside"); svg.replaceChildren();
+  const cx = 70, cy = 160, r = (d) => d * Math.PI / 180;
+  const ray = (deg, len, color, w = 2.5, dash = null) => {
+    const x1 = cx + Math.cos(r(deg)) * len, y1 = cy - Math.sin(r(deg)) * len;
+    svg.append(el("svg:line", { x1: cx, y1: cy, x2: x1, y2: y1, stroke: color, "stroke-width": w, "stroke-dasharray": dash, "stroke-linecap": "round" }));
+    return [x1, y1];
+  };
+  svg.append(el("svg:line", { x1: 10, y1: cy, x2: 310, y2: cy, stroke: css("--line") }));
+  // the club comes in along the attack angle
+  const a = r(state.attack), px = cx - Math.cos(a) * 60, py = cy + Math.sin(a) * 60;
+  svg.append(el("svg:line", { x1: px, y1: py, x2: cx, y2: cy, stroke: css("--path"), "stroke-width": 2.5 }));
+  svg.append(el("svg:text", { x: px - 4, y: py + (state.attack < 0 ? -8 : 16), "text-anchor": "end", text: `attack ${sgn(state.attack)}°` }));
+  // the face: perpendicular to its normal (the loft), and the normal
+  const L = r(state.loft), fx = Math.sin(L) * 34, fy = Math.cos(L) * 34;
+  // the face plane leans back from the target by the loft: its top end is behind (left of) the ball
+  svg.append(el("svg:line", { x1: cx - 6 - fx, y1: cy - fy, x2: cx - 6 + fx * 0.3, y2: cy + fy * 0.3, stroke: css("--face"), "stroke-width": 5, "stroke-linecap": "round" }));
+  const [nx, ny] = ray(state.loft, 120, css("--face"), 1.2, "3 3");
+  svg.append(el("svg:text", { x: nx + 4, y: ny, text: `loft ${state.loft.toFixed(1)}°` }));
+  const [bx, by] = ray(last.launch, 190, css("--ball"));
+  svg.append(el("svg:text", { x: bx - 4, y: by + 16, "text-anchor": "end", text: `launch ${last.launch.toFixed(1)}°` }));
+  svg.append(el("svg:circle", { cx, cy: cy - 5, r: 5, fill: css("--surface"), stroke: css("--ink"), "stroke-width": 1.5 }));
+  svg.append(el("svg:text", { x: 8, y: 214, text: `spin loft ${last.spinloft.toFixed(1)}° → ${Math.round(last.spin).toLocaleString()} rpm` }));
+}
+
+/* the clubface, 4.4 px per mm: click to strike */
+function faceDiagram() {
+  const svg = $("facesvg"); svg.replaceChildren();
+  const kind = DATA.clubs[state.club].kind, P = 4.4, cx = 130, cy = 65;
+  let shape;
+  if (kind === "wood") shape = `M ${cx - 112} ${cy + 10} C ${cx - 118} ${cy - 46}, ${cx + 80} ${cy - 62}, ${cx + 116} ${cy - 22} C ${cx + 124} ${cy + 20}, ${cx + 90} ${cy + 52}, ${cx - 80} ${cy + 46} C ${cx - 104} ${cy + 42}, ${cx - 112} ${cy + 30}, ${cx - 112} ${cy + 10} Z`;
+  else if (kind === "putter") shape = `M ${cx - 118} ${cy - 18} L ${cx + 118} ${cy - 18} L ${cx + 118} ${cy + 22} L ${cx - 118} ${cy + 22} Z`;
+  else shape = `M ${cx - 110} ${cy - 22} L ${cx + 96} ${cy - 56} C ${cx + 122} ${cy - 58}, ${cx + 124} ${cy + 30}, ${cx + 104} ${cy + 44} L ${cx - 110} ${cy + 44} Z`;
+  svg.append(el("svg:path", { d: shape, fill: css("--chip"), stroke: css("--muted"), "stroke-width": 1.5 }));
+  if (kind !== "wood" && kind !== "putter") for (let i = -3; i <= 4; i++) svg.append(el("svg:line", { x1: cx - 96, y1: cy + i * 9, x2: cx + 100, y2: cy + i * 9 - (i < -1 ? 6 : 0), stroke: css("--line") }));
+  svg.append(el("svg:line", { x1: cx, y1: cy - 8, x2: cx, y2: cy + 8, stroke: css("--muted") }));
+  svg.append(el("svg:line", { x1: cx - 8, y1: cy, x2: cx + 8, y2: cy, stroke: css("--muted") }));
+  svg.append(el("svg:text", { x: 4, y: 126, text: "heel" }));
+  svg.append(el("svg:text", { x: 256, y: 126, "text-anchor": "end", text: "toe" }));
+  svg.append(el("svg:circle", { cx: cx + state.sx * P, cy: cy - state.sy * P, r: 9.4, fill: css("--surface"), stroke: css("--ball"), "stroke-width": 2.5 }));
+}
+
+function flight() {
+  const all = [last, ...kept];
+  let xmax = 30, ymax = 10, zmax = 5;
+  for (const s of all) for (const p of s.path) { xmax = Math.max(xmax, p[0]); ymax = Math.max(ymax, Math.abs(p[1])); zmax = Math.max(zmax, p[2]); }
+  xmax = Math.ceil((xmax * 1.06) / 10) * 10; ymax *= 1.25; zmax *= 1.25;
+  const chart = (id, H, ymin, ymaxv, ylabel, yOf) => {
+    const svg = $(id); svg.replaceChildren();
+    const W = 1000, L = 46, R = 14, T = 12, B = 30;
+    const sx = (x) => L + x / xmax * (W - L - R), sy = (y) => T + (1 - (y - ymin) / (ymaxv - ymin)) * (H - T - B);
+    const xs = niceStep(xmax, 10), ys = niceStep(ymaxv - ymin, 5);
+    for (let x = 0; x <= xmax + 1e-9; x += xs) { svg.append(el("svg:line", { x1: sx(x), x2: sx(x), y1: T, y2: H - B, stroke: css("--grid") })); svg.append(el("svg:text", { x: sx(x), y: H - B + 15, "text-anchor": "middle", text: x })); }
+    for (let y = Math.ceil(ymin / ys) * ys; y <= ymaxv + 1e-9; y += ys) { svg.append(el("svg:line", { x1: L, x2: W - R, y1: sy(y), y2: sy(y), stroke: Math.abs(y) < 1e-9 ? css("--muted") : css("--grid") })); svg.append(el("svg:text", { x: L - 6, y: sy(y) + 4, "text-anchor": "end", text: Math.abs(+y.toFixed(1)) + (id === "top" && y !== 0 ? (y > 0 ? " R" : " L") : "") })); }
+    svg.append(el("svg:text", { x: W - R, y: H - 3, "text-anchor": "end", text: "yards down the target line" }));
+    svg.append(el("svg:text", { x: L, y: T - 2, text: ylabel }));
+    const line = (s, ghost) => {
+      const air = s.path.filter(p => p[4] === 0), ground = s.path.filter((p, i) => p[4] !== 0 || (i + 1 < s.path.length && s.path[i + 1][4] !== 0));
+      const d = (pts) => pts.map((p, i) => `${i ? "L" : "M"} ${sx(p[0]).toFixed(1)} ${sy(yOf(p)).toFixed(1)}`).join(" ");
+      if (air.length) svg.append(el("svg:path", { d: d(air), fill: "none", stroke: ghost ? css("--ghost") : css("--ball"), "stroke-width": ghost ? 1.6 : 2.6 }));
+      if (ground.length) svg.append(el("svg:path", { d: d(ground), fill: "none", stroke: ghost ? css("--ghost") : css("--roll"), "stroke-width": ghost ? 1.6 : 2.6 }));
+      const end = s.path[s.path.length - 1];
+      svg.append(el("svg:circle", { cx: sx(end[0]), cy: sy(yOf(end)), r: ghost ? 3 : 4.5, fill: ghost ? css("--ghost") : css("--ink") }));
+      if (ghost && id === "top") svg.append(el("svg:text", { x: sx(end[0]) + 6, y: sy(yOf(end)) + 4, text: s.label }));
+    };
+    kept.forEach(s => line(s, true));
+    line(last, false);
+    return (sy(ymin) - sy(ymaxv)) / (ymaxv - ymin) / ((W - L - R) / xmax);
+  };
+  const kt = chart("top", 300, -ymax, ymax, "from above: across the line (yd)", (p) => p[1]);
+  const ks = chart("sideview", 260, 0, zmax, "from the side: height (yd)", (p) => p[2]);
+  $("scale-note").textContent = `Across the line is drawn ×${kt.toFixed(1)} and height ×${ks.toFixed(1)} against distance, so curves and heights read. Kept shots stay until cleared.`;
+}
+
+boot();
+</script>

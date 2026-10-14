@@ -2,7 +2,9 @@
 
 `golf-impact`: `ClubDelivery + Club + Lie → LaunchConditions`. Status: **current, M4 (2026-10-13)**. Club table:
 `data/clubs/standard.v1.json`; lie table: `data/materials/lie.v1.json`. Fit: `golf-lab fit-impact`. Tests:
-`crates/golf-impact/tests/impact.rs`. Shapes: `golf-lab/examples/shapes.rs`.
+`crates/golf-impact/tests/impact.rs`. Shapes: `golf-lab/examples/shapes.rs`. Viewer: **Impact Lab**
+(`tools/impact-lab.sh` → `out/viewer/impact.html`): the engine compiled to WebAssembly (`crates/golf-wasm`) runs in
+the page, so every slider plays a real shot: delivery, impact, flight, bounce and roll.
 
 ## The model (D53)
 

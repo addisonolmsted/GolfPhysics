@@ -19,6 +19,8 @@ members = [
     "crates/golf-shot",
     # Network service: course cache, sessions, the phone and display connections.
     "crates/golf-server",
+    # The engine in a browser for the lab pages (wasm32, C-ABI exports).
+    "crates/golf-wasm",
     # Offline tooling: fixture smoke tests, calibration sweeps, trajectory plots, swing replay.
     "crates/golf-lab",
 ]
