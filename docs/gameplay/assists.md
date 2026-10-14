@@ -197,6 +197,7 @@ Per shot, using the course and the round state:
 | Swing speed | Full in the control and casual bands, fading through the power band (principle 4). |
 | Swing quality | A clean, smooth swing gets more than a jerky one with low `quality`. |
 | Club | Putter and wedges near the green have their own curves (pace matters most); the driver from the tee is the most forgiving. |
+| Club and lie difficulty | Multiplied by `(1 − D)`, where D is the difficulty of this club from this lie ([C](#c-club-and-lie-difficulty-d59)): a driver off the deck or a wood from a fairway bunker gets little help. |
 
 **How it plays out:**
 
@@ -261,6 +262,43 @@ about 6-10 rolls, ~1-2 ms. Within budget.
 
 **Why pace first:** missing pace leaves a long second putt whatever the line, while a good-paced putt slightly off
 line leaves a tap-in. Pace help raises the casual floor most, which is the point of the assists.
+
+## C: Club and lie difficulty (D59)
+
+Some club choices are hard in real golf for reasons a phone can't reproduce: a driver off the deck or a wood from a
+fairway bunker is hard because it's easy to top or thin, and topping is impossible here (D57, D58). They should
+still be playable, but harder, and get less help (owner, 2026-10-13). A difficulty `D` from 0 to 1 per club and lie
+does it, from the situation alone (D22: the same for every player):
+
+1. **Less help.** The target-correction fraction `s` is multiplied by `(1 − D)`. It stacks with the speed fade and
+   the lie, so a hard swing with a driver off the deck gets almost nothing.
+2. **Harder to catch it clean.** D narrows the dead zone and raises the gain of the heel-toe strike mapping
+   ([P1, D56](../contracts/P1-swing-input.md#orientation-and-rotation-at-impact--face-loft-path-attack-strike-d56-d58-m5)):
+   `d · (1 − a D)`, `g · (1 + b D)`. The same wobbly swing that is centred with a 7 iron from the fairway becomes a
+   toe or heel strike with a driver off the deck, losing speed and adding curve. Still capped short of the hosel:
+   the floor (D58) holds. This stands in for the tops and thins a phone can't produce.
+
+The physics already does part of it: a driver off the ground has no tee, so the attack is down and it launches low
+with more spin; grass between face and ball cuts speed and spin from the rough. D is on top of the lie's own
+effect, not instead of it.
+
+**Starting values** (*proposed*, tuned in playtests; `a` and `b` set with the strike mapping from the pilot):
+
+| Club | Tee | Fairway / first cut | Rough | Fescue | Fairway bunker / waste |
+|---|---:|---:|---:|---:|---:|
+| Driver | 0 | 0.6 | 0.85 | 1.0 | 1.0 |
+| 3-5 wood | 0 | 0.15 | 0.5 | 0.8 | 0.6 |
+| 7 wood, hybrids | 0 | 0.05 | 0.25 | 0.5 | 0.35 |
+| 3-5 iron | 0 | 0.1 | 0.35 | 0.6 | 0.4 |
+| 6-9 iron | 0 | 0 | 0.1 | 0.3 | 0.15 |
+| Wedges | 0 | 0 | 0 | 0.15 | 0.1 |
+
+Greenside bunker shots are their own shot type, outside this table. Woods floor and native areas take the rough
+and fescue columns until playtests say otherwise. The table lives in the one assist configuration
+(`data/assist/assist.v1.json`).
+
+**Option, not planned:** for D near 1, a mild "thin" (a low strike: lower launch, less speed) on poor swings only.
+It would be a narrow exception to D57; keep it out unless a driver off the deck still feels too easy.
 
 ## Unusual club choices (*proposed*, 2026-10-12)
 
