@@ -7,7 +7,7 @@
 //! Coulomb friction regularised near zero slip, and the green's rolling resistance on turf contacts. Fixed 20 µs
 //! steps, only while the ball is at the hole.
 
-use golf_core::ball::{INERTIA_K, MASS_KG, RADIUS_M};
+use golf_core::ball::{CONTACT_RADIUS_M as RC, INERTIA_K, MASS_KG, RADIUS_M};
 use golf_core::math::{G_MPS2, ln};
 use golf_core::{Vec2, Vec3};
 use golf_flight::State;
@@ -19,10 +19,9 @@ pub const CUP_DT_S: f64 = 2e-5;
 pub const CUP_DEPTH_M: f64 = 0.1016;
 /// contact stiffness, N/m: a ~3 ms contact, like a ball on firm turf or a plastic liner
 const STIFFNESS: f64 = 5e4;
-/// restitution of the turf edge, the liner wall and the bottom
+/// restitution of the turf edge and the liner wall
 const E_EDGE: f64 = 0.3;
 const E_WALL: f64 = 0.45;
-const E_BOTTOM: f64 = 0.3;
 /// Coulomb friction on turf (edge, green) and on the liner
 const MU_TURF: f64 = 0.4;
 const MU_LINER: f64 = 0.25;
@@ -93,11 +92,12 @@ pub fn at_the_cup(o: Vec3, n: Vec3, radius: f64, rr_decel: f64, pull: f64, s0: S
     let e1 = (x - n * x.dot(n)).norm();
     let fr = Frame { e1, e2: n.cross(e1), n };
     let inertia = INERTIA_K * MASS_KG * RADIUS_M * RADIUS_M;
+    // geometry uses the contact ball (D49); spin, inertia and the contact point's slip use the real one
     let g = fr.to_local(Vec3::new(0.0, 0.0, -G_MPS2));
     let mut c = fr.to_local(s0.p - o);
     // start resting on the green at the spring's equilibrium
-    if c.z <= RADIUS_M + 1e-3 {
-        c.z = RADIUS_M - MASS_KG * -g.z / STIFFNESS;
+    if c.z <= RC + 1e-3 {
+        c.z = RC - MASS_KG * -g.z / STIFFNESS;
     }
     let mut v = fr.to_local(s0.v);
     v.z = v.z.max(0.0);
@@ -111,20 +111,20 @@ pub fn at_the_cup(o: Vec3, n: Vec3, radius: f64, rr_decel: f64, pull: f64, s0: S
         let rho = Vec2::new(c.x, c.y).len();
         let dir = if rho > 1e-12 { Vec3::new(c.x / rho, c.y / rho, 0.0) } else { Vec3::new(1.0, 0.0, 0.0) };
         // holed: the whole ball below the rim
-        if c.z < -RADIUS_M {
+        if c.z < -RC {
             let s = world(c, v, w, t);
             rec.sample(s, Phase::Roll);
-            let rest = State { t, p: o + fr.to_world(Vec3::new(0.0, 0.0, -CUP_DEPTH_M + RADIUS_M)), v: Vec3::ZERO, w: Vec3::ZERO };
+            let rest = State { t, p: o + fr.to_world(Vec3::new(0.0, 0.0, -CUP_DEPTH_M + RC)), v: Vec3::ZERO, w: Vec3::ZERO };
             rec.event(&rest, EventKind::Holed);
             return (CupEnd::Holed, rest);
         }
         // left the hole: past the rim by more than the ball's radius
-        if rho > radius + RADIUS_M + 0.005 || t - s0.t > MAX_CUP_S {
+        if rho > radius + RC + 0.005 || t - s0.t > MAX_CUP_S {
             let s = world(c, v, w, t);
             if touched_rim && !lip_logged {
                 rec.event(&s, EventKind::LipOut);
             }
-            let airborne = c.z > RADIUS_M + 0.003 && v.z > 0.0;
+            let airborne = c.z > RC + 0.003 && v.z > 0.0;
             return (if airborne { CupEnd::Airborne } else { CupEnd::Rolling }, s);
         }
 
@@ -132,30 +132,34 @@ pub fn at_the_cup(o: Vec3, n: Vec3, radius: f64, rr_decel: f64, pull: f64, s0: S
         let mut tq = Vec3::ZERO;
         if rho >= radius {
             // the green around the hole
-            contact(Vec3::Z, RADIUS_M - c.z, v, w, E_EDGE, MU_TURF, rr_decel, &mut f, &mut tq);
+            contact(Vec3::Z, RC - c.z, v, w, E_EDGE, MU_TURF, rr_decel, &mut f, &mut tq);
         } else if c.z >= 0.0 {
             // the rim: the nearest point of the circle
             let q = dir * radius;
             let d = c - q;
             let dl = d.len();
-            if dl < RADIUS_M && contact(d / dl, RADIUS_M - dl, v, w, E_EDGE, MU_TURF, rr_decel, &mut f, &mut tq) > 0.0 && rho < radius - 1e-3 {
+            if dl < RC && contact(d / dl, RC - dl, v, w, E_EDGE, MU_TURF, rr_decel, &mut f, &mut tq) > 0.0 && rho < radius - 1e-3 {
                 touched_rim = true;
             }
         } else {
             // the liner wall, and the rim edge from below
-            let pen = rho + RADIUS_M - radius;
+            let pen = rho + RC - radius;
             if pen > 0.0 {
                 contact(dir * -1.0, pen, v, w, E_WALL, MU_LINER, 0.0, &mut f, &mut tq);
             }
             let q = dir * radius;
             let d = c - q;
             let dl = d.len();
-            if dl < RADIUS_M && d.z > 0.0 {
-                contact(d / dl, RADIUS_M - dl, v, w, E_EDGE, MU_TURF, rr_decel, &mut f, &mut tq);
+            if dl < RC && d.z > 0.0 {
+                contact(d / dl, RC - dl, v, w, E_EDGE, MU_TURF, rr_decel, &mut f, &mut tq);
             }
-            let pb = (-CUP_DEPTH_M + RADIUS_M) - c.z;
-            if pb > 0.0 {
-                contact(Vec3::Z, pb, v, w, E_BOTTOM, MU_LINER, 0.0, &mut f, &mut tq);
+            // touching the bottom is holed (D50): no bounce-outs. (Holed below the rim comes first while the contact
+            // ball is shallower than the cup; this stands for dunks and any other depth.)
+            if c.z <= -CUP_DEPTH_M + RC {
+                let s = world(c, v, w, t);
+                rec.dense(s, Phase::Roll);
+                rec.event(&s, EventKind::Holed);
+                return (CupEnd::Holed, s);
             }
         }
         v += f / MASS_KG * CUP_DT_S;
@@ -166,7 +170,7 @@ pub fn at_the_cup(o: Vec3, n: Vec3, radius: f64, rr_decel: f64, pull: f64, s0: S
         if steps % 100 == 0 {
             rec.dense(world(c, v, w, t), Phase::Roll);
         }
-        if touched_rim && !lip_logged && c.z > RADIUS_M + 0.002 && v.z > 0.0 {
+        if touched_rim && !lip_logged && c.z > RC + 0.002 && v.z > 0.0 {
             // thrown up off the far edge
             lip_logged = true;
             rec.event(&world(c, v, w, t), EventKind::LipOut);

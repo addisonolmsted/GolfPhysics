@@ -298,17 +298,11 @@ function renderCup() {
   const panel = document.getElementById("panel");
   panel.replaceChildren();
   const C = DATA.cup;
-  panel.append(el("h2", { text: "The 8-inch cup" }));
+  panel.append(el("h2", { text: "The 10-inch cup" }));
   panel.append(el("p", { class: "lede", text: C.note }));
-  const t = el("table");
-  t.append(el("thead", {}, [el("tr", {}, ["Line passes the centre at", "Regulation 108 mm: fastest that drops", "Game 203 mm, uncapped"].map(h => el("th", { text: h })))]));
-  const tb = el("tbody");
-  for (const r of C.rows) tb.append(el("tr", {}, [el("td", { text: `${(r.offset_frac * 100).toFixed(0)} % of the radius` }), el("td", { text: `${fmt(r.regulation, 2)} m/s` }), el("td", { text: `${fmt(r.game, 2)} m/s` })]));
-  t.append(tb);
-  panel.append(el("div", { class: "table-wrap" }, [t]));
   if (C.map) panel.append(captureMaps(C.map));
   panel.append(el("div", { class: "qa" }, [
-    el("p", {}, [el("span", { class: "label", text: "Decision" }), document.createTextNode(`The game caps capture at ${fmt(C.game_cap, 1)} m/s (D47): a putt heading about 3 m past on a stimp 10.5 green still drops if it is on line; a slammed one lips out. Uncapped, any putt on line up to ~3.1 m/s would drop, about 9 m of roll past the hole.`)])]));
+    el("p", {}, [el("span", { class: "label", text: "Decision" }), document.createTextNode(`Pace still matters: above ${fmt(C.game_cap, 1)} m/s a ball reaching the hole feels less of its pull, dips less and kicks off the far edge, as a too-fast putt does. Uncapped, the 10-inch cup with the 2x ball would take centred putts up to about 3 m/s, a putt heading about 9 m past.`)])]));
 }
 
 function captureMaps(M) {
@@ -342,7 +336,7 @@ function boot() {
   st.append(el("span", { class: `chip ${ok === total ? "good" : "bad"}` }, [el("i", { class: "dot" }), document.createTextNode(`${ok} / ${total} shots behaved as physics predicts`)]));
   const tabs = document.getElementById("tabs");
   const views = DATA.scenarios.map(s => ({ id: s.id, name: s.title, ok: s.shots.every(x => !x.verdict || x.verdict.ok), run: () => renderScenario(s) }));
-  views.push({ id: "cup", name: "The 8-inch cup", ok: true, run: renderCup });
+  views.push({ id: "cup", name: "The 10-inch cup", ok: true, run: renderCup });
   let current = null;
   const select = (v) => { current = v; tabs.querySelectorAll("button").forEach(b => b.setAttribute("aria-selected", b.dataset.id === v.id)); v.run(); try { localStorage.setItem("groundlab-tab", v.id); } catch (e) {} };
   for (const v of views) {

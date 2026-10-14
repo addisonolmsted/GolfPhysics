@@ -1,7 +1,7 @@
 //! The integrator: classic RK4 at a fixed 10 ms, spin as a vector, ground contact refined by a fixed-count
 //! bisection (deterministic: docs/01-conventions.md).
 
-use golf_core::ball::{MASS_KG, RADIUS_M};
+use golf_core::ball::{CONTACT_RADIUS_M, MASS_KG, RADIUS_M};
 use golf_core::math::{self, G_MPS2};
 use golf_core::{Air, LaunchConditions, Vec3};
 
@@ -153,7 +153,7 @@ impl<'a> Model<'a> {
     /// Fly from a ball resting on the ground at `start` (x, y; z is taken from the ground) until it touches down.
     pub fn fly(&self, start: golf_core::Vec2, launch: &LaunchConditions) -> Flight {
         let z0 = self.ground.contact(start.x, start.y).map_or(0.0, |g| g.0);
-        let s0 = State { t: 0.0, p: start.extend(z0 + RADIUS_M), v: launch.velocity(), w: launch.spin() };
+        let s0 = State { t: 0.0, p: start.extend(z0 + CONTACT_RADIUS_M), v: launch.velocity(), w: launch.spin() };
         self.fly_from(s0)
     }
 
@@ -162,7 +162,7 @@ impl<'a> Model<'a> {
         let mut s = s0;
         let mut apex = s0;
         let mut samples = vec![s0];
-        let mut gz = self.ground.contact(s.p.x, s.p.y).map_or(s.p.z - RADIUS_M, |g| g.0);
+        let mut gz = self.ground.contact(s.p.x, s.p.y).map_or(s.p.z - CONTACT_RADIUS_M, |g| g.0);
         let mut next_check = 0.0;
         // leave the ground before testing for contact (the launch starts touching it): 1 cm of clearance or 50 ms,
         // whichever comes first. A hop off a slope can start a hair below the surface and never clear 1 cm; without
@@ -179,7 +179,7 @@ impl<'a> Model<'a> {
                     None => return Flight { samples, apex, last: n, end: End::OffWorld, launch: s0 },
                     Some((g, surf)) => {
                         gz = g;
-                        let clear = n.p.z - RADIUS_M - g;
+                        let clear = n.p.z - CONTACT_RADIUS_M - g;
                         if clear > 0.01 || n.t - s0.t > AIRBORNE_AFTER_S {
                             airborne = true;
                         }
@@ -210,7 +210,7 @@ impl<'a> Model<'a> {
             let mid = 0.5 * (lo + hi);
             let m = self.rk4(s, mid, z_agl);
             let (gm, sm) = self.ground.contact(m.p.x, m.p.y).unwrap_or((g, surf));
-            if m.p.z - RADIUS_M - gm > 0.0 {
+            if m.p.z - CONTACT_RADIUS_M - gm > 0.0 {
                 lo = mid;
             } else {
                 hi = mid;

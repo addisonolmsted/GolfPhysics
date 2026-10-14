@@ -11,7 +11,7 @@ fn main() {
     let m = GroundMaterials::builtin();
     let green = TestPlane::flat(SurfaceClass::GREEN);
     let a = m.get(SurfaceClass::GREEN).base_decel();
-    for (name, r, cap) in [("regulation", CUP_RADIUS_M, None), ("8 in, no cap", GAME_CUP_RADIUS_M, None), ("game: 8 in, cap", GAME_CUP_RADIUS_M, golf_ground::GAME_CAPTURE_CAP_MPS)] {
+    for (name, r, cap) in [("regulation", CUP_RADIUS_M, None), ("10 in, no cap", GAME_CUP_RADIUS_M, None), ("game: 10 in, cap", GAME_CUP_RADIUS_M, golf_ground::GAME_CAPTURE_CAP_MPS)] {
         println!("{name}: rows = speed at the hole (m/s), columns = line offset as a share of the radius 0.0 .. 0.95");
         let t0 = std::time::Instant::now();
         let mut n = 0;

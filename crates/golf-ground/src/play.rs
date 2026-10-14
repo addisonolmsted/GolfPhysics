@@ -72,7 +72,7 @@ impl<'a, T: Terrain> BallModel<'a, T> {
     /// a ball already rolling on the ground (a putt, or a test): velocity along the ground, rolling spin
     pub fn roll_from(&self, start: Vec2, v: Vec3) -> Outcome {
         let z = self.terrain.surface_at(start.x, start.y).map_or(0.0, |s| s.z);
-        let p = start.extend(z + golf_core::ball::RADIUS_M);
+        let p = start.extend(z + golf_core::ball::CONTACT_RADIUS_M);
         let n = self.terrain.surface_at(start.x, start.y).map_or(Vec3::Z, |s| Vec3::new(-s.dzdx, -s.dzdy, 1.0).norm());
         let s0 = State { t: 0.0, p, v, w: n.cross(v) / golf_core::ball::RADIUS_M };
         let mut rec = Recorder::default();

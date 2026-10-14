@@ -244,14 +244,14 @@ fn cross_slope(m: &GroundMaterials) -> Value {
         shots.push(shot_json(&format!("read for stimp {stimp}: aim {:.0} cm above", above * 100.0), &o, Some((o.state == RestState::Holed, format!("{:?}", o.state)))));
     }
     let game = putt(m, 0.0, Some(Cup::game(Vec2::new(d, 0.0), 0.0)));
-    shots.push(shot_json("aimed straight, the 8-inch game cup", &game, Some((true, format!("{:?}", game.state)))));
+    shots.push(shot_json("aimed straight, the 10-inch game cup", &game, Some((true, format!("{:?}", game.state)))));
     let monotone = breaks.windows(2).all(|w| w[1] > w[0]);
     json!({"id": "cross", "title": "Break on a cross slope", "units": "m", "topview": true,
         "question": "Does a putt across a slope curve downhill, and does a faster green need more break?",
         "expect": format!("On a 2 % side slope, a 6 m putt struck to finish 0.4 m past the hole curves downhill. Faster greens need more break, because the putt is struck more softly and spends longer on the slope. Here the aim above the hole grows with stimp: {} ({}).",
             breaks.iter().map(|b| format!("{:.0} cm", b * 100.0)).collect::<Vec<_>>().join(", "), if monotone { "as expected" } else { "NOT increasing" }),
         "cup": [d, 0.0], "cups": [{"r": golf_core::ball::CUP_RADIUS_M, "fill": true}, {"r": golf_core::ball::GAME_CUP_RADIUS_M, "fill": false}],
-        "cup_label": "8-inch game cup (dashed), regulation cup (solid)",
+        "cup_label": "10-inch game cup (dashed), regulation cup (solid)",
         "profile": Value::Null, "shots": shots, "slope": {"dir": "falls towards -y", "grade": slope}})
 }
 
@@ -355,17 +355,70 @@ fn lip_outs(m: &GroundMaterials) -> Value {
     let profile = json!([[x0, 0.0, 1], [d - r, 0.0, 0], [d - r, -depth, 0], [d + r, -depth, 0], [d + r, 0.0, 1], [x1, 0.0, 1]]);
     json!({"id": "lip", "title": "Lip-outs", "units": "m", "topview": true, "slowmo": true,
         "question": "What does the cup do with putts of different pace and line: dead weight, firm, too firm, and catching the edge?",
-        "expect": "The ball is a sphere meeting the rim, the liner wall and the bottom. A slow ball over the hole falls in, even off the edge; a firm one falls far enough to strike the back wall below the rim and drops; a too-fast one hasn't fallen far enough by the far side, so the edge throws it up and out. Off-centre, the rim pushes the ball sideways: a firm putt is turned away (the classic lip-out), a dying one topples in. The game's 8-inch cup lets a putt on line drop up to about 1.8 m/s.",
-        "cup": [d, 0.0], "cups": [{"r": r, "fill": true}], "cup_label": "8-inch game cup",
+        "expect": "The ball is a sphere meeting the rim, the liner wall and the bottom. A slow ball over the hole falls in, even off the edge; a firm one falls far enough to strike the back wall below the rim and drops; a too-fast one hasn't fallen far enough by the far side, so the edge throws it up and out. Off-centre, the rim pushes the ball sideways: a firm putt is turned away (the classic lip-out), a dying one topples in. The game's 10-inch cup with the 2x ball lets a putt on line drop up to about 2.0 m/s.",
+        "cup": [d, 0.0], "cups": [{"r": r, "fill": true}], "cup_label": "10-inch game cup",
         "window": {"x": [x0, x1], "y": [-0.16, 0.16], "z": [-0.115, 0.08]},
         "profile": profile, "profile_note": "Section through the cup's centre; off-centre balls cross a narrower part of the hole.",
         "shots": shots})
 }
 
 /// H holed, L lipped out, . missed, by speed at the hole and line offset, for three cups
+/// the angle a ball's centre sweeps about the cup centre (degrees) while it is near the rim
+fn swept_deg(o: &Outcome, cup: Vec2, near: f64) -> f64 {
+    let mut swept = 0.0;
+    let mut last: Option<f64> = None;
+    for s in &o.samples {
+        let p = s.p.xy() - cup;
+        if p.len() < near {
+            let a = p.y.atan2(p.x);
+            if let Some(l) = last {
+                let mut da = a - l;
+                while da > std::f64::consts::PI {
+                    da -= 2.0 * std::f64::consts::PI;
+                }
+                while da < -std::f64::consts::PI {
+                    da += 2.0 * std::f64::consts::PI;
+                }
+                swept += da;
+            }
+            last = Some(a);
+        } else {
+            last = None;
+        }
+    }
+    swept.abs().to_degrees()
+}
+
+fn rim_rides(m: &GroundMaterials) -> Value {
+    let r = golf_core::ball::GAME_CUP_RADIUS_M;
+    let cap = golf_ground::GAME_CAPTURE_CAP_MPS;
+    let d = 1.0;
+    // found by examples/rim_ride.rs on a flat green: (label, line offset as a share of the radius, speed at the hole, drops)
+    let cases: [(&str, f64, f64, bool); 4] = [
+        ("all the way round and in: 89 % out, 0.80 m/s", 0.8875, 0.80, true),
+        ("swirls inside the lip and drops: 61 % out, 1.80 m/s", 0.61, 1.80, true),
+        ("nearly a full lap, then out: 70 % out, 1.55 m/s", 0.70, 1.55, false),
+        ("three-quarters round and out: 85 % out, 0.90 m/s", 0.85, 0.90, false),
+    ];
+    let mut shots = Vec::new();
+    for (label, f, v, drop) in cases {
+        let o = putt_at_cup(m, r, cap, f * r, v);
+        let holed = o.state == RestState::Holed;
+        let sw = swept_deg(&o, Vec2::new(d, 0.0), r + golf_core::ball::CONTACT_RADIUS_M);
+        let text = format!("went {sw:.0}° around the cup, then {}", if holed { "dropped".to_string() } else { format!("spun out and stopped {:.2} m away", (o.rest.xy() - Vec2::new(d, 0.0)).len()) });
+        shots.push(shot_json(label, &o, Some((holed == drop && sw > 180.0, text))));
+    }
+    json!({"id": "rim", "title": "Around the rim", "units": "m", "topview": true, "slowmo": true,
+        "question": "Do putts ride the rim, sometimes most of the way round, and then drop or spin out?",
+        "expect": "Nothing here is scripted. A ball that catches the rim on an edge line is held against it: the edge pushes it towards the centre, which bends its path round the cup while friction slows it. If it slows enough while hanging over the hole it falls in; if it is still fast where the rim turns away, it spins out. A fast ball can also drop part-way and swirl round inside the lip. On a flat green about 1 in 40 edge putts (lines 55-100 % out) go more than half-way round; on a side slope it is far more common for balls entering on the high side, which gravity holds against the rim.",
+        "cup": [d, 0.0], "cups": [{"r": r, "fill": true}], "cup_label": "10-inch game cup",
+        "window": {"x": [d - 0.3, d + 0.35], "y": [-0.24, 0.24], "z": [-0.115, 0.08]},
+        "profile": Value::Null, "shots": shots})
+}
+
 fn capture_map(m: &GroundMaterials) -> Value {
     use golf_core::ball::{CUP_RADIUS_M, GAME_CUP_RADIUS_M};
-    let cups = [("Regulation 4.25 in", CUP_RADIUS_M, None), ("8 in, no cap", GAME_CUP_RADIUS_M, None), ("Game: 8 in, 1.8 m/s cap", GAME_CUP_RADIUS_M, golf_ground::GAME_CAPTURE_CAP_MPS)];
+    let cups = [("Regulation 4.25 in", CUP_RADIUS_M, None), ("10 in, no cap", GAME_CUP_RADIUS_M, None), ("Game: 10 in, 2.0 m/s cap", GAME_CUP_RADIUS_M, golf_ground::GAME_CAPTURE_CAP_MPS)];
     let speeds: Vec<f64> = (0..16).map(|k| r2(0.2 + 0.2 * k as f64)).collect();
     let offsets: Vec<f64> = (0..20).map(|j| r2(0.05 * j as f64)).collect();
     let maps: Vec<Value> = cups
@@ -398,13 +451,13 @@ fn cup_table() -> Value {
                 "game": r2(golf_ground::capture_speed_for(f * golf_core::ball::GAME_CUP_RADIUS_M, golf_core::ball::GAME_CUP_RADIUS_M))})
         })
         .collect();
-    json!({"regulation_mm": 108, "game_mm": 203, "game_cap": golf_ground::GAME_CAPTURE_CAP_MPS, "rows": rows,
-        "note": "The fastest a ball can cross the cup and drop, by how far its line passes from the centre (as a share of the radius). Uncapped, an 8-inch cup would accept any putt on line up to about 3.1 m/s, so the game caps it at 1.8 m/s (D47). For scale: a putt that would finish 0.4 m past crosses the hole at about 0.65 m/s on a stimp 10.5 green; 2 m past, about 1.45 m/s."})
+    json!({"regulation_mm": 108, "game_mm": 254, "game_cap": golf_ground::GAME_CAPTURE_CAP_MPS, "rows": rows,
+        "note": "The game draws the ball at 2x a real one, and the ball touches the cup, the ground and everything else at that size (D49), so what players see is what drops. The cup is 10 inches (254 mm), 3 balls across, against 2.5 for a real ball in a real cup (D51). Line forgiveness is the cup's radius: a putt drops when its centre crosses within 127 mm of the hole's centre at a dying pace. Pace is capped at 2.0 m/s through the centre, a putt heading about 3.8 m past on a stimp 10.5 green. Touching the bottom of the cup is holed (D50)."})
 }
 
 pub fn run() -> Result<(), String> {
     let m = GroundMaterials::builtin();
-    let scenarios = vec![ridge(&m), bowl(&m), cliff(&m), face(&m), cross_slope(&m), lip_outs(&m), wedges(&m), backstop(&m)];
+    let scenarios = vec![ridge(&m), bowl(&m), cliff(&m), face(&m), cross_slope(&m), lip_outs(&m), rim_rides(&m), wedges(&m), backstop(&m)];
     for s in &scenarios {
         println!("== {}", s["title"].as_str().unwrap_or(""));
         for sh in s["shots"].as_array().unwrap() {
@@ -433,7 +486,7 @@ mod tests {
     #[test]
     fn every_ground_lab_shot_behaves_as_predicted() {
         let m = GroundMaterials::builtin();
-        for s in [ridge(&m), bowl(&m), cliff(&m), face(&m), cross_slope(&m), lip_outs(&m), wedges(&m), backstop(&m)] {
+        for s in [ridge(&m), bowl(&m), cliff(&m), face(&m), cross_slope(&m), lip_outs(&m), rim_rides(&m), wedges(&m), backstop(&m)] {
             for sh in s["shots"].as_array().unwrap() {
                 let v = &sh["verdict"];
                 assert!(v["ok"].as_bool().unwrap_or(true), "{} / {}: {}", s["title"], sh["label"], v["text"]);

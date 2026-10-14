@@ -2,7 +2,7 @@
 //! gravity and rolling resistance, until rest, the cup, water, or a crest the ball leaves (docs/models/ground.md).
 //! Semi-implicit Euler at 1 ms with the exact height and normal each step.
 
-use golf_core::ball::{CUP_RADIUS_M, INERTIA_K, MASS_KG, RADIUS_M};
+use golf_core::ball::{CONTACT_RADIUS_M, CUP_RADIUS_M, INERTIA_K, MASS_KG, RADIUS_M};
 use golf_core::math::G_MPS2;
 use golf_core::{Vec2, Vec3};
 use golf_course::SurfaceClass;
@@ -26,7 +26,7 @@ pub struct Cup {
     pub xy: Vec2,
     pub z: f64,
     pub radius_m: f64,
-    /// a big game cup captures fast putts (3.1 m/s through the centre at 8 inches); a cap keeps pace mattering
+    /// a big game cup captures fast putts (2.5 m/s through the centre at 10 inches with the 2x ball); a cap keeps pace mattering
     pub capture_cap_mps: Option<f64>,
 }
 
@@ -36,7 +36,7 @@ impl Cup {
         Cup { xy, z, radius_m: CUP_RADIUS_M, capture_cap_mps: None }
     }
 
-    /// the game's cup (D47): 8 inches across, capture speed capped at GAME_CAPTURE_CAP_MPS
+    /// the game's cup (D47, D51): 10 inches across, capture speed capped at GAME_CAPTURE_CAP_MPS
     pub fn game(xy: Vec2, z: f64) -> Cup {
         Cup { xy, z, radius_m: golf_core::ball::GAME_CUP_RADIUS_M, capture_cap_mps: GAME_CAPTURE_CAP_MPS }
     }
@@ -64,7 +64,7 @@ impl Cup {
 
 /// the game cup's capture-speed cap (D47): a putt on line drops below 1.8 m/s, about 3 m of roll past the hole at
 /// stimp 10.5. Uncapped, the 8-inch cup would take ~3.1 m/s through the centre, and pace would hardly matter.
-pub const GAME_CAPTURE_CAP_MPS: Option<f64> = Some(1.8);
+pub const GAME_CAPTURE_CAP_MPS: Option<f64> = Some(2.0);
 
 /// the cup model's centred capture speed as a share of the simple estimate's (measured with cup_map.rs)
 const HOLE_PULL_PHYS: f64 = 0.93;
@@ -76,7 +76,7 @@ pub fn capture_speed_for(b: f64, radius: f64) -> f64 {
     if b >= radius {
         return 0.0;
     }
-    2.0 * (radius * radius - b * b).sqrt() * (G_MPS2 / (2.0 * RADIUS_M)).sqrt()
+    2.0 * (radius * radius - b * b).sqrt() * (G_MPS2 / (2.0 * CONTACT_RADIUS_M)).sqrt()
 }
 
 /// the regulation cup's capture speed
@@ -130,7 +130,7 @@ pub fn roll<T: Terrain + ?Sized>(terrain: &T, mats: &GroundMaterials, s0: State,
         }
         let mat = mats.get(class);
         // stay on the surface, moving along it
-        s.p.z = sf.z + RADIUS_M / n.z;
+        s.p.z = sf.z + CONTACT_RADIUS_M / n.z;
         s.v -= n * s.v.dot(n);
         let speed = s.v.len();
         rec.sample(s, if sliding { Phase::Slide } else { Phase::Roll });

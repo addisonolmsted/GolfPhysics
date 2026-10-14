@@ -91,7 +91,8 @@ fn bunkers_stop_the_ball_and_only_steep_fast_landings_plug() {
 
 #[test]
 fn the_cup_takes_putts_below_the_capture_speed() {
-    assert!((capture_speed(0.0) - 1.64).abs() < 0.02, "Holmes measured ~1.63 m/s through the centre");
+    // Holmes' estimate (1.64 m/s for a real ball) with the 2x contact ball (D49): 1.64 / sqrt(2)
+    assert!((capture_speed(0.0) - 1.16).abs() < 0.02);
     assert_eq!(capture_speed(CUP_RADIUS_M), 0.0);
     let m = GroundMaterials::builtin();
     let green = TestPlane::flat(SurfaceClass::GREEN);
@@ -101,15 +102,16 @@ fn the_cup_takes_putts_below_the_capture_speed() {
         let b = BallModel::new(&green, &m, AeroParams::builtin(), Air::trackman_normal(), Wind::CALM, Some(Cup::regulation(Vec2::new(d, offset), 0.0)));
         b.roll_from(Vec2::ZERO, Vec3::new((at_hole * at_hole + 2.0 * a * d).sqrt(), 0.0, 0.0))
     };
+    // the regulation cup with the 2x ball is tight: centred putts up to ~1.3 m/s (cup_map.rs)
+    assert_eq!(putt(0.6, 0.0).state, RestState::Holed);
     assert_eq!(putt(1.0, 0.0).state, RestState::Holed);
-    assert_eq!(putt(1.4, 0.0).state, RestState::Holed);
-    assert_eq!(putt(1.0, 0.03).state, RestState::Holed);
-    let fast = putt(2.2, 0.0);
+    assert_eq!(putt(0.4, 0.02).state, RestState::Holed);
+    let fast = putt(1.7, 0.0);
     assert_ne!(fast.state, RestState::Holed);
     assert!(fast.events.iter().any(|e| e.kind == EventKind::LipOut));
     assert_ne!(putt(1.0, CUP_RADIUS_M + 0.005).state, RestState::Holed);
     // a holed ball rests in the cup
-    let o = putt(0.8, 0.0);
+    let o = putt(0.6, 0.0);
     assert!((o.rest.xy() - Vec2::new(3.0, 0.0)).len() < 1e-9);
 }
 
@@ -196,7 +198,7 @@ fn random_shots_on_every_fixture_end_cleanly() {
             assert!(o.rest.x.is_finite() && o.rest.y.is_finite() && o.rest.z.is_finite(), "{seed} shot {k}: NaN");
             if o.state == RestState::OnGround {
                 let g = c.height(o.rest.x, o.rest.y).unwrap();
-                assert!(o.rest.z - RADIUS_M - g > -0.002, "{seed} shot {k}: rest {:.4} m below the ground", g - (o.rest.z - RADIUS_M));
+                assert!(o.rest.z - golf_core::ball::CONTACT_RADIUS_M - g > -0.002, "{seed} shot {k}: rest {:.4} m below the ground", g - (o.rest.z - golf_core::ball::CONTACT_RADIUS_M));
             }
             for w in o.samples.windows(2) {
                 assert!(w[1].t >= w[0].t, "{seed} shot {k}: samples out of order");

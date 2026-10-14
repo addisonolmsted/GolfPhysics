@@ -56,45 +56,48 @@ velocity is projected onto the tangent plane.
 
 ## The cup (`cup.rs`)
 
-The regulation cup is 108 mm across; **the game's cup is 8 inches (203.2 mm)** (D47), `Cup::game`. `Cup::regulation`
-stays for tests and the lab. Both are centred on the pin, with a 4-inch-deep liner.
+**Sizes.** The game draws the ball at 2x a real one (85.3 mm) and the ball touches things at that size (D49):
+`CONTACT_RADIUS_M`. Flight, spin, inertia and rolling keep the real 42.67 mm ball. The game cup is **10 inches
+(254 mm)** across (D51), 3 balls wide against 2.5 for a real ball in a real cup; `Cup::regulation` (108 mm) stays
+for tests and the lab. The liner is 4 inches deep.
 
 **The hole is geometry, not a rule** (D48). Once the ball's centre is over the hole, `cup.rs` takes it: a sphere
-meeting the rim (a circle at the ground), the liner wall, the bottom and the green around the hole, in a local frame
-tilted with the green. Contacts are stiff springs with damping set by a restitution (turf edge 0.3, liner 0.45,
-bottom 0.3), Coulomb friction that also turns the spin (turf 0.4, liner 0.25), and the green's rolling resistance on
-turf. 20 µs steps, only at the hole: a putt costs 0.16-0.27 ms in all. Holed means the whole ball is below the rim.
-Everything else falls out:
+meeting the rim (a circle at the ground), the liner wall and the green around the hole, in a local frame tilted with
+the green. Contacts are stiff springs with damping set by a restitution (turf edge 0.3, liner 0.45), Coulomb friction
+that also turns the spin (turf 0.4, liner 0.25), and the green's rolling resistance on turf. Geometry uses the
+contact radius; the contact point's slip and the spin use the real one. 20 µs steps, only at the hole: a putt costs
+~0.3 ms in all.
+
+**Holed** is the whole ball below the rim, or any touch of the bottom (D50: no bounce-outs from the bottom, dunks
+included). With the 85 mm ball in a 102 mm cup the first always comes first.
+
+Everything else falls out of the contacts:
 
 - dead weight drops; a firm putt hits the back wall below the rim and drops;
 - a too-fast putt hasn't fallen far enough by the far side, so the edge throws it up and out;
-- off-centre, the rim pushes the ball around the back of the cup: firm putts horseshoe out (a putt half a cup
-  out at 1.9 m/s leaves turned 40°), dying ones topple in the side door;
-- a ball whose centre never crosses the rim is never taken (the green holds its weight).
+- off-centre, the rim holds the ball against itself and bends its path round the cup (**rim rides**). A ball that
+  slows while hanging over the hole falls in; one still fast where the rim turns away spins out. A fast ball can
+  drop part-way and swirl round inside the lip. On a flat green ~1 in 40 edge putts (lines 55-100 % out) go more
+  than half-way round, a few drop after 290-500°; on a 2 % side slope it is far more common for balls entering on
+  the high side, which gravity holds against the rim, and absent on the low side (`examples/rim_ride.rs`);
+- a ball whose centre never crosses the rim is never taken.
 
-Measured on a flat green (Ground Lab, "The 8-inch cup" tab): the regulation cup takes a centred putt up to
-~1.9 m/s. Holmes' estimate, `v = 2√(R² − b²)·√(g/2r)` (1.64 m/s), assumes the ball must fall its full radius; in the
-model a ball that has fallen most of it meets the far edge near its equator and is turned back in. The uncapped
-8-inch cup takes ~2.9 m/s.
+**The speed cap** (`GAME_CAPTURE_CAP_MPS`, 2.0 m/s, D51): uncapped, the 10-inch cup takes centred putts up to ~3 m/s
+(a putt heading ~9 m past at stimp 10.5). The cap is applied inside the model: a ball that reaches the hole fast
+feels less of gravity while over the hole, `(v0/v)^4` above v0, with v0 set so a centred putt drops up to the cap
+(`Cup::hole_pull`). It dips less and kicks off the far edge, as a too-fast putt does. Slow putts are untouched.
 
-**The game's speed cap** (`GAME_CAPTURE_CAP_MPS`, 1.8 m/s, D47) is applied inside the model, not as a rule: a ball
-that reaches the hole fast feels less of gravity while it is over the hole, `(v0/v)^4` for v > v0, with v0 set so a
-centred putt drops up to the cap (`Cup::hole_pull`). It dips less and kicks off the far edge, which is what a
-too-fast putt looks like; putts below ~1.5 m/s are untouched. The fall is quick (well under a frame at real speed),
-so the display can't tell.
-
-Why 8 inches and not 10: a make-rate model (flat putts, start-line error σ 1° for a good phone putter and 2.5° for a
-casual one, pace error 8 % and 15 %, aiming 0.4 m past; the error sizes are guesses until the pilot measures them):
+Make rates (flat putts; start-line error σ 1° for a good phone putter and 2.5° for a casual one, pace error 8 % and
+15 %, aiming 0.4 m past; the error sizes are guesses until the pilot measures them):
 
 | Cup | Casual: 1 / 2 / 3 / 5 m | Good: 1 / 2 / 3 / 5 m |
 |---|---|---|
-| 4.25" regulation | 63 / 28 / 15 / 7 % | 98 / 72 / 49 / 25 % |
-| 6" | 78 / 42 / 26 / 13 % | 98 / 84 / 65 / 39 % |
-| **8", cap 1.8 m/s** | **85 / 53 / 34 / 17 %** | **98 / 87 / 74 / 50 %** |
-| 10", cap 2.0 m/s | 87 / 62 / 42 / 23 % | 98 / 87 / 77 / 58 % |
+| Regulation, real ball | 63 / 28 / 15 / 7 % | 98 / 72 / 49 / 25 % |
+| 8 in, 2x ball | 84 / 51 / 32 / 16 % | 98 / 87 / 72 / 47 % |
+| **10 in, 2x ball, cap 2.0 (game)** | **87 / 60 / 40 / 21 %** | **98 / 87 / 77 / 56 %** |
+| 12 in, 2x ball, cap 2.0 | 87 / 66 / 47 / 26 % | 98 / 88 / 78 / 62 % |
 
-Past 8 inches most misses are pace misses, which a wider cup doesn't help; and the putting assist adds forgiveness
-on top.
+12 inches was considered: it pushes good putters well past tour make rates from 3-5 m, on top of the putting assist.
 
 ## Materials
 
@@ -120,7 +123,7 @@ All but the green and fairway are placeholders until feel tuning (D21).
 | Other drivers on fairway | PGA 19, LPGA 28, 70 mph 37 yd of roll; into rough the amateur driver rolls 9 yd | 15-40 yd: met |
 | Wedges on a green | PGA PW −0.1 yd (checks), amateur PW +1.7, LPGA PW +3.6; tour 7 iron +4.1, amateur 7 iron +14.9 | met |
 | Bunker | steep iron and wedge landings stop within a yard; a shallow driver landing runs 5.5 yd (a feel item); a near-vertical fast landing plugs | met |
-| Cup | holed through the centre at 1.0 and 1.4 m/s and 30 mm off-centre at 1 m/s; lips out at 2.2 m/s; misses past the rim (cup model, D48) | met |
+| Cup | regulation cup with the 2x ball: holed through the centre at 0.6 and 1.0 m/s, lips out at 1.7; game cup: 80 mm off line holed, 1.7 m/s holed, 2.2 lips out (cup model, D48-D51) | met |
 | Settling | a ball dropped 0.5 m from every pin of the six fixtures (4 directions) rests within 3 m | met |
 | Fuzz | 900 random shots (speeds 40-170 mph, launch 5-35°, wind to 10 m/s, any direction) on three fixtures: no timeout, no NaN, no ball resting below the ground | met |
 | Determinism | bit-identical repeats | met |
@@ -146,7 +149,7 @@ fails if one stops behaving.
 | Hollow | rolls back and forth, settles at the bottom |
 | Drop (a rounded lip onto a lower level) | below ~0.9 m/s rolls over the lip; faster flies off it |
 | Steep face | a roll climbs it only above ~6 m/s; a pitch into it stops at the foot (4.5 m) |
-| Cross slope (2 %, 4 m putt) | aimed straight, breaks 65 cm and misses the 8-inch cup; read right it drops at stimp 8, 10.5 and 13 (reads 51, 67, 85 cm) |
+| Cross slope (2 %, 4 m putt) | aimed straight, breaks 65 cm and misses the 10-inch cup; read right it drops at stimp 8, 10.5 and 13 (reads 51, 67, 85 cm) |
 | Tour wedges | low spinner +5.6 yd (grabs, then a slow roll), check shot +1.2, full PW −2.0 (spins back), lob +0.1 |
 | Backstop (a slope behind the pin) | the full PW comes back 18.1 m down the slope; the check shot 6.4 m |
 
