@@ -1,0 +1,89 @@
+{
+ "version": 1,
+ "status": "M4 (2026-10-13): placeholders until feel tuning (D21), started from GolfEngine's table and the impact doc. Keyed by C0 class id.",
+ "model": {
+  "speed_factor": "ball speed multiplier: grass or sand between the face and the ball",
+  "spin_factor": "spin multiplier: grass between the face and the ball (fliers)",
+  "launch_add_deg": "launch added: the ball comes out higher from a lie that cushions it"
+ },
+ "classes": {
+  "1": {
+   "name": "green",
+   "speed_factor": 1.0,
+   "spin_factor": 1.0,
+   "launch_add_deg": 0.0
+  },
+  "2": {
+   "name": "collar / fringe",
+   "speed_factor": 1.0,
+   "spin_factor": 0.95,
+   "launch_add_deg": 0.0
+  },
+  "3": {
+   "name": "fairway",
+   "speed_factor": 1.0,
+   "spin_factor": 1.0,
+   "launch_add_deg": 0.0
+  },
+  "4": {
+   "name": "tee",
+   "speed_factor": 1.0,
+   "spin_factor": 1.0,
+   "launch_add_deg": 0.0
+  },
+  "5": {
+   "name": "first cut",
+   "speed_factor": 0.98,
+   "spin_factor": 0.85,
+   "launch_add_deg": 0.5
+  },
+  "6": {
+   "name": "rough",
+   "speed_factor": 0.92,
+   "spin_factor": 0.6,
+   "launch_add_deg": 1.0
+  },
+  "7": {
+   "name": "fescue / deep rough",
+   "speed_factor": 0.78,
+   "spin_factor": 0.45,
+   "launch_add_deg": 2.0
+  },
+  "8": {
+   "name": "waste sand",
+   "speed_factor": 0.92,
+   "spin_factor": 0.7,
+   "launch_add_deg": 0.0
+  },
+  "10": {
+   "name": "path",
+   "speed_factor": 1.0,
+   "spin_factor": 1.0,
+   "launch_add_deg": 0.0
+  },
+  "11": {
+   "name": "woods floor",
+   "speed_factor": 0.9,
+   "spin_factor": 0.75,
+   "launch_add_deg": 0.5
+  },
+  "12": {
+   "name": "native / scrub",
+   "speed_factor": 0.82,
+   "spin_factor": 0.5,
+   "launch_add_deg": 1.5
+  },
+  "15": {
+   "name": "bunker sand (a full shot)",
+   "speed_factor": 0.85,
+   "spin_factor": 0.5,
+   "launch_add_deg": 0.0
+  },
+  "16": {
+   "name": "field / opening",
+   "speed_factor": 0.95,
+   "spin_factor": 0.8,
+   "launch_add_deg": 0.5
+  }
+ }
+}

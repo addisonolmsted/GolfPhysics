@@ -5,10 +5,12 @@
 
 pub mod air;
 pub mod ball;
+pub mod delivery;
 pub mod launch;
 pub mod math;
 pub mod vec;
 
 pub use air::Air;
+pub use delivery::ClubDelivery;
 pub use launch::LaunchConditions;
 pub use vec::{Vec2, Vec3};

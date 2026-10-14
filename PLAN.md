@@ -100,13 +100,18 @@ switch, rolling resistance, slope gravity, putting, cup capture, water entry, pl
   surface fall within the target bands. A ball dropped on every fixture green settles. No ball tunnels through the
   ground or escapes the world in a 100k random-shot fuzz.
 
-### M4: Impact and clubs (`next`)
+### M4: Impact and clubs (`done` 2026-10-13, branch `m4-impact`)
 
 `golf-impact` and the club table (data file): delivery to launch through the D-plane model, a smash factor per
 club, a strike-point gear effect, and lie effects from the material and later from the lie layer.
 
 - **Gate:** tour-average deliveries give tour-average launch conditions per club, and face/path combinations give
   the expected curve directions (fade, draw, push, pull, slice, hook).
+- **Result:** a physical oblique-impact model (D53) fitted per club to the PGA Tour rows; the same coefficients
+  give the LPGA rows' ball speed within 2.5 % and spin within 10 % (one odd row at 13 %). The driver is fitted to
+  the slower players (D54). Every face/path case shapes the right way, and a per-club axis gain fixes M2b's iron
+  curve (D55). Gear effect, strike loss, lie factors and slope are in, as placeholders for feel tuning. Details:
+  [impact.md](docs/models/impact.md).
 
 ### M5: Swing input (`queued`; the SwingLab data-collection app is built, D38: [data-collection.md](docs/data-collection.md))
 

@@ -14,6 +14,8 @@ pub struct FitRow {
     pub group: String,
     pub club: String,
     pub club_mph: f64,
+    #[serde(default)]
+    pub attack_deg: Option<f64>,
     pub ball_mph: f64,
     pub launch_deg: f64,
     pub spin_rpm: f64,

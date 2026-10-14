@@ -281,6 +281,8 @@ name = "golf-impact"
 version = "0.0.0"
 dependencies = [
  "golf-core",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -292,6 +294,7 @@ dependencies = [
  "golf-course",
  "golf-flight",
  "golf-ground",
+ "golf-impact",
  "golf-shot",
  "libm",
  "serde",

@@ -8,6 +8,7 @@ edited after a release; a change is a new version, and the versions in use go in
 | `calibration/reference.v1.json` | M2 ✓ | TrackMan tour and amateur fit rows, never-fitted handicap sniff rows with bands, every source and what is verified |
 | `aero/ball.v1.json` | M2 ✓ | fitted drag, lift and spin-decay coefficients, with the fit command and residuals; compiled into `golf-flight` |
 | `materials/physics.v1.json` | M3 ✓ | per C0 class: bounce (Penner), roll (stimp on greens; the fairway fitted to TrackMan's amateur driver roll), plugging; compiled into `golf-ground` (D18) |
-| `clubs/standard.v1.json` | M4 | the club table: loft, length, D-plane coefficients, expected speeds |
+| `clubs/standard.v1.json` | M4 ✓ | the club table: loft, lie, length, head mass, and the impact coefficients fitted by `golf-lab fit-impact` to TrackMan's tour rows (restitution, spin factor and speed exponent, tour shaft lean, spin axis gain); gear and strike placeholders; compiled into `golf-impact` |
+| `materials/lie.v1.json` | M4 ✓ | per C0 class: the lie's ball speed, spin and launch factors (placeholders until feel tuning); compiled into `golf-impact` |
 | `trees/generic.v1.json` | M6 | generic tree and shrub models with tunable proxy detail, until the asset library exists (D20) |
 | `assist/assist.v1.json` | M5, M7 | the one assist configuration: speed-curve bands, baseline carries, correction dials |

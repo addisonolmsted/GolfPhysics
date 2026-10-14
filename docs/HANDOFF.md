@@ -39,8 +39,10 @@ Updated 2026-10-11. Read this first when picking the work up in a new session.
   lip-outs and rim rides. The ball is **2x** for display and contact (D49); the **game cup is 10 inches** with a
   2.0 m/s cap (D51); touching the bottom is holed (D50). The flagstick is in from off the green and
   out on it, and physical; slam dunks go to the cup model (D52). Revisit the cup with the pilot's putting data.
-- **Next: M4, impact and clubs** (D-plane, the club table, lie effects, the per-club face/path → curve
-  calibration).
+- **M4 done** (2026-10-13) on branch `m4-impact` (from `m3-ground`): `golf-impact`, the club table
+  (`data/clubs/standard.v1.json`, fitted by `golf-lab fit-impact`) and the lie table. D53-D55.
+- **Next: M5, swing input** (the pilot's data, the speed curve) or M6 obstacles; hard surfaces wait for the
+  generator (owner, 2026-10-13).
 - **Carry into M7:** speed for the putting assist (6-10 putts per stroke at ~0.47 ms each): a patch cache or a
   longer roll step on smooth greens.
 
