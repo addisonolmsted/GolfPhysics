@@ -29,19 +29,22 @@ pointing-down check are shared with SwingApp through `SwingApp/Shared/`, so dete
 
 1. **Home:** statistics for this phone, **Export** (new sessions, all sessions, or one session), and **New
    session**.
-2. **Consent:** an adult (18+), motion data only, an anonymous participant code, wrist strap on, clear space.
-   Handedness here, because it sets the swing direction.
+2. **New session** (changed 2026-10-14): the anonymous participant code, handedness (it sets the swing direction),
+   **golf ability** (required: never, casual, regular, competitive), handicap, and optional gender, age band and
+   height. No agreement questions: the pilot is run in person with friends and family, on the team's phones, and
+   consent is given in person (recorded as given). Experienced golfers (plays regularly or competitively, or a
+   handicap of 20 or better) get the **fade and draw blocks**.
 3. **How to hold it:** like a club grip, the top of the phone pointing at the ground, the screen facing the target.
    The hold is saved with every swing.
-4. **The protocol**, block by block, with a workflow strip across the top (Practice → Full → Hard → ¾ → Chips →
-   Putts) and a 3D target picture for the current block. For each swing:
+4. **The protocol**, block by block, with a workflow strip across the top (Practice → Full → Hard → ¾ → (Fade →
+   Draw) → Chips → Putts) and a 3D target picture for the current block. For each swing:
    - **Address:** point the phone down and hold still. After **1.5 s of stillness** the phone vibrates and the
      screen flashes green: armed.
    - **Swing.** The swing ends at the **impact crossing** (below), the phone vibrates again, and recording continues
      for 1 s of follow-through.
    - **Result:** the swing is kept, with **Delete previous** available. A deleted swing is kept as *discarded*, never
      erased, so false triggers can be studied.
-5. **Survey** (golf experience, handicap, age band, height, optional launch-monitor numbers).
+5. **Last details:** optional launch-monitor numbers (if real balls were hit) and notes.
 6. **Review and save:** confirm and save on the phone, then **Export now** or later from Home.
 
 ### Detection
@@ -50,9 +53,10 @@ All angles are in the **address frame**: the phone's orientation at the moment i
 
 | Step | Rule (v1 values, tunable) |
 |---|---|
-| Pointing down | the phone's +y axis within 45° of straight down |
-| Still | for 1.5 s: rotation rate under 0.35 rad/s and user acceleration under 0.06 g on every sample |
-| Armed | haptic + green flash; the address orientation `q0` is stored |
+| Pointing down | from CoreMotion's gravity vector: the phone's +y within 35° of straight down to start settling, within 45° to stay (hysteresis) |
+| Still | for 1.5 s, on **smoothed** rotation rate and user acceleration (0.15 s time constant): settle below 0.35 rad/s and 0.06 g, break only above 0.7 rad/s or 0.12 g. One twitch no longer restarts the count (before 2026-10-14 every sample had to pass). |
+| Armed | haptic + green flash; the address orientation `q0` is the **average attitude over the last 0.3 s** of the still window, not one sample: a steadier reference for the face and toe angles at impact (P1, D56) |
+| Re-address | armed, if the player settles again (still 0.6 s, under 1° of turn across 0.3 s) turned at least 4° from `q0` (a grip adjustment after the flash), `q0` is taken again with a light tick. A slow putting takeaway turns too much to count as still. The count goes in the swing header. |
 | Swing angle | SwingApp's angle: the phone's +y axis in the address frame, projected on the plane normal to address +x, `atan2(z, y)`, **unwrapped**, so a full swing past vertical doesn't wrap. That's why a plain dot-product test would fire at the top. |
 | Backswing | the side the angle first leaves by 8°; the top is the largest excursion on that side |
 | Impact | the angle crosses back through 0 after a backswing of at least the block's minimum (full 60°, ¾ 45°, chip 15°, putt 4°), with the rotation rate about the swing axis at least the block's minimum (full 3 rad/s, ¾ 2.5, chip 0.8, putt 0.25). The crossing time is interpolated between samples. |
@@ -110,7 +114,7 @@ Its setup:
 
 No names or contact details are stored either way; the participant code is random.
 
-## Protocol v1 (about 15 minutes, 41 swings)
+## Protocol v2 (about 15 minutes, 41 swings; 49 for experienced golfers)
 
 | Block | Swings | Prompt | Target picture |
 |---|---|---|---|
@@ -118,6 +122,8 @@ No names or contact details are stored either way; the participant code is rando
 | Full: normal | 10 | Your normal, comfortable full swing | tee, 220 yd |
 | Full: hard | 5 | As hard as you comfortably can, staying balanced | tee, 250 yd |
 | Three-quarter | 5 | A controlled three-quarter swing | fairway, 140 yd |
+| Fade (experienced golfers) | 4 | Swing to hit a fade: the ball curving away from you | fairway, 150 yd |
+| Draw (experienced golfers) | 4 | Swing to hit a draw: the ball curving towards you | fairway, 150 yd |
 | Chip 10 yd | 3 | A short chip | chip, 10 yd |
 | Chip 25 yd | 3 | A pitch | chip, 25 yd |
 | Chip 40 yd | 3 | A longer pitch | chip, 40 yd |
@@ -125,7 +131,9 @@ No names or contact details are stored either way; the participant code is rando
 | Putt 4 m | 3 | A medium putt | green, 4 m |
 | Putt 10 m | 3 | A long putt | green, 10 m |
 
-Protocols are data (`SwingLab/Protocols/*.json`), so a block can be added or reordered without changing code.
+Protocols are data (`SwingLab/Protocols/*.json`), so a block can be added or reordered without changing code. A block
+with `"requires": "skilled"` is only swung by experienced golfers. The fade and draw blocks test whether a phone
+swing carries intent at all (P1: do face to path and the start line separate between the two?).
 
 ## The pilot (D38)
 
@@ -138,5 +146,5 @@ Protocols are data (`SwingLab/Protocols/*.json`), so a block can be added or reo
 
 ## Safety
 
-A wrist strap or a firm grip on a case is mandatory, the consent screen asks for clear space, and the hard block
-says "comfortably" on purpose.
+A wrist strap or a firm grip on a case is mandatory, and whoever runs the session checks for clear space (the app
+no longer asks, 2026-10-14). The hard block says "comfortably" on purpose.
