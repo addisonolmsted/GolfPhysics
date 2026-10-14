@@ -63,6 +63,12 @@ impl Recorder {
         }
     }
 
+    /// a sample kept whatever the rate: the ball at the hole, where 1/30 s would miss the drop
+    pub fn dense(&mut self, s: State, phase: Phase) {
+        self.samples.push(Sample { t: s.t, p: s.p, v: s.v, w: s.w, phase });
+        self.next_t = s.t + SAMPLE_DT_S;
+    }
+
     /// the flight's own samples (already ~30 Hz)
     pub fn flight(&mut self, f: &golf_flight::Flight) {
         for s in &f.samples {

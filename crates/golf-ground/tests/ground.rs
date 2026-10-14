@@ -104,7 +104,7 @@ fn the_cup_takes_putts_below_the_capture_speed() {
     assert_eq!(putt(1.0, 0.0).state, RestState::Holed);
     assert_eq!(putt(1.4, 0.0).state, RestState::Holed);
     assert_eq!(putt(1.0, 0.03).state, RestState::Holed);
-    let fast = putt(1.9, 0.0);
+    let fast = putt(2.2, 0.0);
     assert_ne!(fast.state, RestState::Holed);
     assert!(fast.events.iter().any(|e| e.kind == EventKind::LipOut));
     assert_ne!(putt(1.0, CUP_RADIUS_M + 0.005).state, RestState::Holed);

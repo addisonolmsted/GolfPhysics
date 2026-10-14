@@ -17,6 +17,10 @@ fn r2(v: f64) -> f64 {
     (v * 100.0).round() / 100.0
 }
 
+fn r3(v: f64) -> f64 {
+    (v * 1000.0).round() / 1000.0
+}
+
 fn smoothstep(u: f64) -> f64 {
     let u = u.clamp(0.0, 1.0);
     u * u * (3.0 - 2.0 * u)
@@ -28,7 +32,7 @@ fn model<'a, T: Terrain>(t: &'a T, m: &'a GroundMaterials, cup: Option<Cup>) -> 
 
 /// a shot's path [x, y, z], time series [t, speed, backspin rpm along +x travel, x], and events
 fn shot_json(label: &str, o: &Outcome, verdict: Option<(bool, String)>) -> Value {
-    let path: Vec<Value> = o.samples.iter().map(|s| json!([r2(s.p.x), r2(s.p.y), (s.p.z * 1000.0).round() / 1000.0, (s.t * 1000.0).round() / 1000.0])).collect();
+    let path: Vec<Value> = o.samples.iter().map(|s| json!([r3(s.p.x), r3(s.p.y), (s.p.z * 1000.0).round() / 1000.0, (s.t * 1000.0).round() / 1000.0])).collect();
     let land_t = o.events.iter().find(|e| matches!(e.kind, EventKind::Land { .. } | EventKind::StartSlide)).map_or(0.0, |e| e.t);
     let series: Vec<Value> = o
         .samples
@@ -246,7 +250,8 @@ fn cross_slope(m: &GroundMaterials) -> Value {
         "question": "Does a putt across a slope curve downhill, and does a faster green need more break?",
         "expect": format!("On a 2 % side slope, a 6 m putt struck to finish 0.4 m past the hole curves downhill. Faster greens need more break, because the putt is struck more softly and spends longer on the slope. Here the aim above the hole grows with stimp: {} ({}).",
             breaks.iter().map(|b| format!("{:.0} cm", b * 100.0)).collect::<Vec<_>>().join(", "), if monotone { "as expected" } else { "NOT increasing" }),
-        "cup": [d, 0.0], "cup_r": [golf_core::ball::CUP_RADIUS_M, golf_core::ball::GAME_CUP_RADIUS_M],
+        "cup": [d, 0.0], "cups": [{"r": golf_core::ball::CUP_RADIUS_M, "fill": true}, {"r": golf_core::ball::GAME_CUP_RADIUS_M, "fill": false}],
+        "cup_label": "8-inch game cup (dashed), regulation cup (solid)",
         "profile": Value::Null, "shots": shots, "slope": {"dir": "falls towards -y", "grade": slope}})
 }
 
@@ -309,6 +314,81 @@ fn backstop(m: &GroundMaterials) -> Value {
         "profile": prof, "shots": shots})
 }
 
+/// a putt along +x on a flat green, its line `b` from the centre of a cup 1 m ahead, reaching the hole at `v`
+fn putt_at_cup(m: &GroundMaterials, cup_r: f64, cap: Option<f64>, b: f64, v: f64) -> Outcome {
+    let green = golf_ground::TestPlane::flat(C::GREEN);
+    let d = 1.0;
+    let a = m.get(C::GREEN).base_decel();
+    let cup = Cup { xy: Vec2::new(d, 0.0), z: 0.0, radius_m: cup_r, capture_cap_mps: cap };
+    model(&green, m, Some(cup)).roll_from(Vec2::new(0.0, b), Vec3::new((v * v + 2.0 * a * (d - cup_r)).sqrt(), 0.0, 0.0))
+}
+
+fn lip_outs(m: &GroundMaterials) -> Value {
+    let r = golf_core::ball::GAME_CUP_RADIUS_M;
+    let cap = golf_ground::GAME_CAPTURE_CAP_MPS;
+    let d = 1.0;
+    // (label, line offset as a share of the radius, speed at the hole, should it drop, what to expect)
+    let cases: [(&str, f64, f64, bool, &str); 7] = [
+        ("dead weight, centre, 0.4 m/s", 0.0, 0.4, true, "drops in"),
+        ("firm, centre, 1.5 m/s", 0.0, 1.5, true, "hits the back wall and drops"),
+        ("too firm, centre, 2.4 m/s", 0.0, 2.4, false, "dips, kicks off the far edge and hops out"),
+        ("dying at the edge, 90 % out, 0.35 m/s", 0.9, 0.35, true, "topples in the side door"),
+        ("firm at the edge, 92 % out, 1.4 m/s", 0.92, 1.4, false, "rides the rim and is turned away"),
+        ("half the cup, 50 % out, 1.9 m/s", 0.5, 1.9, false, "catches the far side of the rim and spins out"),
+        ("just past the edge, 105 % out, 0.6 m/s", 1.05, 0.6, false, "misses: the rim never takes the ball's weight"),
+    ];
+    let mut shots = Vec::new();
+    for (label, f, v, drop, what) in cases {
+        let o = putt_at_cup(m, r, cap, f * r, v);
+        let holed = o.state == RestState::Holed;
+        let after = o.samples.iter().rev().find(|s| s.v.xy().len() > 0.05 && s.p.x > d);
+        let turn = after.map_or(0.0, |s| s.v.y.atan2(s.v.x).to_degrees());
+        let text = if holed {
+            format!("holed: {what}")
+        } else {
+            format!("{} the ball left heading {turn:+.0}° off its line and stopped {:.2} m past ({what})", if has(&o, EventKind::LipOut) { "lipped out:" } else { "missed:" }, o.rest.x - d)
+        };
+        shots.push(shot_json(label, &o, Some((holed == drop, text))));
+    }
+    let (x0, x1) = (d - 0.3, d + 0.5);
+    let depth = golf_ground::cup::CUP_DEPTH_M;
+    let profile = json!([[x0, 0.0, 1], [d - r, 0.0, 0], [d - r, -depth, 0], [d + r, -depth, 0], [d + r, 0.0, 1], [x1, 0.0, 1]]);
+    json!({"id": "lip", "title": "Lip-outs", "units": "m", "topview": true, "slowmo": true,
+        "question": "What does the cup do with putts of different pace and line: dead weight, firm, too firm, and catching the edge?",
+        "expect": "The ball is a sphere meeting the rim, the liner wall and the bottom. A slow ball over the hole falls in, even off the edge; a firm one falls far enough to strike the back wall below the rim and drops; a too-fast one hasn't fallen far enough by the far side, so the edge throws it up and out. Off-centre, the rim pushes the ball sideways: a firm putt is turned away (the classic lip-out), a dying one topples in. The game's 8-inch cup lets a putt on line drop up to about 1.8 m/s.",
+        "cup": [d, 0.0], "cups": [{"r": r, "fill": true}], "cup_label": "8-inch game cup",
+        "window": {"x": [x0, x1], "y": [-0.16, 0.16], "z": [-0.115, 0.08]},
+        "profile": profile, "profile_note": "Section through the cup's centre; off-centre balls cross a narrower part of the hole.",
+        "shots": shots})
+}
+
+/// H holed, L lipped out, . missed, by speed at the hole and line offset, for three cups
+fn capture_map(m: &GroundMaterials) -> Value {
+    use golf_core::ball::{CUP_RADIUS_M, GAME_CUP_RADIUS_M};
+    let cups = [("Regulation 4.25 in", CUP_RADIUS_M, None), ("8 in, no cap", GAME_CUP_RADIUS_M, None), ("Game: 8 in, 1.8 m/s cap", GAME_CUP_RADIUS_M, golf_ground::GAME_CAPTURE_CAP_MPS)];
+    let speeds: Vec<f64> = (0..16).map(|k| r2(0.2 + 0.2 * k as f64)).collect();
+    let offsets: Vec<f64> = (0..20).map(|j| r2(0.05 * j as f64)).collect();
+    let maps: Vec<Value> = cups
+        .iter()
+        .map(|&(name, r, cap)| {
+            let rows: Vec<String> = speeds
+                .iter()
+                .map(|&v| {
+                    offsets
+                        .iter()
+                        .map(|&f| {
+                            let o = putt_at_cup(m, r, cap, f * r, v);
+                            if o.state == RestState::Holed { 'H' } else if has(&o, EventKind::LipOut) { 'L' } else { '.' }
+                        })
+                        .collect()
+                })
+                .collect();
+            json!({"name": name, "radius_mm": (r * 2000.0).round(), "rows": rows})
+        })
+        .collect();
+    json!({"speeds": speeds, "offsets": offsets, "maps": maps})
+}
+
 fn cup_table() -> Value {
     let rows: Vec<Value> = [0.0, 0.25, 0.5, 0.75, 0.9]
         .iter()
@@ -324,7 +404,7 @@ fn cup_table() -> Value {
 
 pub fn run() -> Result<(), String> {
     let m = GroundMaterials::builtin();
-    let scenarios = vec![ridge(&m), bowl(&m), cliff(&m), face(&m), cross_slope(&m), wedges(&m), backstop(&m)];
+    let scenarios = vec![ridge(&m), bowl(&m), cliff(&m), face(&m), cross_slope(&m), lip_outs(&m), wedges(&m), backstop(&m)];
     for s in &scenarios {
         println!("== {}", s["title"].as_str().unwrap_or(""));
         for sh in s["shots"].as_array().unwrap() {
@@ -332,7 +412,9 @@ pub fn run() -> Result<(), String> {
             println!("   {:<52} {} {}", sh["label"].as_str().unwrap_or(""), if v["ok"].as_bool().unwrap_or(true) { "ok " } else { "XX " }, v["text"].as_str().unwrap_or(""));
         }
     }
-    let data = json!({"generated": "2026-10-13", "scenarios": scenarios, "cup": cup_table()});
+    let mut cup = cup_table();
+    cup["map"] = capture_map(&m);
+    let data = json!({"generated": "2026-10-13", "scenarios": scenarios, "cup": cup});
     let html = TEMPLATE.replacen("/*__DATA__*/null", &data.to_string(), 1);
     let out = calib::repo_root().join("out/viewer");
     std::fs::create_dir_all(&out).map_err(|e| e.to_string())?;
@@ -351,7 +433,7 @@ mod tests {
     #[test]
     fn every_ground_lab_shot_behaves_as_predicted() {
         let m = GroundMaterials::builtin();
-        for s in [ridge(&m), bowl(&m), cliff(&m), face(&m), cross_slope(&m), wedges(&m), backstop(&m)] {
+        for s in [ridge(&m), bowl(&m), cliff(&m), face(&m), cross_slope(&m), lip_outs(&m), wedges(&m), backstop(&m)] {
             for sh in s["shots"].as_array().unwrap() {
                 let v = &sh["verdict"];
                 assert!(v["ok"].as_bool().unwrap_or(true), "{} / {}: {}", s["title"], sh["label"], v["text"]);

@@ -56,6 +56,10 @@ nav button:focus-visible, .btn:focus-visible { outline: 2px solid var(--accent);
 .qa .label { font: 600 0.8rem/1 var(--display); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-right: 6px; }
 .btn { font: 600 0.95rem/1 var(--display); letter-spacing: 0.06em; text-transform: uppercase; border: 1px solid var(--accent);
   color: var(--accent); background: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; }
+.ctl { display: flex; gap: 8px; align-items: center; }
+select { font: 500 0.85rem/1 var(--mono); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 7px 8px; }
+.maps { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.maps h3 { font: 600 1.0rem/1.2 var(--display); letter-spacing: 0.03em; margin: 0 0 4px; }
 .verdicts { display: grid; gap: 6px; }
 .verdict { display: grid; grid-template-columns: 14px 1fr; gap: 8px; align-items: baseline; font-size: 0.93rem; }
 .verdict .sw { width: 14px; height: 4px; border-radius: 2px; align-self: center; }
@@ -132,9 +136,12 @@ function sideView(sc, shots) {
   let xmin = Infinity, xmax = -Infinity, zmin = Infinity, zmax = -Infinity;
   const prof = sc.profile || [];
   for (const p of prof) { xmin = Math.min(xmin, p[0]); xmax = Math.max(xmax, p[0]); zmin = Math.min(zmin, p[1]); zmax = Math.max(zmax, p[1]); }
-  for (const s of shots) for (const p of s.path) { if (prof.length && (p[0] < xmin || p[0] > xmax)) continue; xmin = Math.min(xmin, p[0]); xmax = Math.max(xmax, p[0]); zmin = Math.min(zmin, p[2]); zmax = Math.max(zmax, p[2]); }
-  const pad = Math.max(0.3, (zmax - zmin) * 0.12);
-  zmin -= pad; zmax += pad;
+  if (sc.window) { [xmin, xmax] = sc.window.x; [zmin, zmax] = sc.window.z; }
+  else {
+    for (const s of shots) for (const p of s.path) { if (prof.length && (p[0] < xmin || p[0] > xmax)) continue; xmin = Math.min(xmin, p[0]); xmax = Math.max(xmax, p[0]); zmin = Math.min(zmin, p[2]); zmax = Math.max(zmax, p[2]); }
+    const pad = Math.max(0.3, (zmax - zmin) * 0.12);
+    zmin -= pad; zmax += pad;
+  }
   const c = chart({ xmin, xmax, ymin: zmin, ymax: zmax, height: 320, xlabel: "along the line (m)", ylabel: "height (m)", aria: `${sc.title}: side view` });
   const exag = ((1000 - 68) / (xmax - xmin)) / ((320 - 48) / (zmax - zmin));
   c.svg.append(el("svg:text", { x: 984, y: 12, "text-anchor": "end", text: `height ×${exag.toFixed(1)}` }));
@@ -145,7 +152,7 @@ function sideView(sc, shots) {
     c.svg.append(el("svg:path", { d, fill: css("--ground"), stroke: "none" }));
     for (let i = 1; i < prof.length; i++) c.svg.append(el("svg:line", { x1: c.sx(prof[i - 1][0]), y1: c.sy(prof[i - 1][1]), x2: c.sx(prof[i][0]), y2: c.sy(prof[i][1]), stroke: classColor(prof[i - 1][2]), "stroke-width": 4 }));
   }
-  return { ...c, xmin, xmax, kind: "side" };
+  return { ...c, xmin, xmax, zmin, zmax, kind: "side" };
 }
 
 function topView(sc, shots) {
@@ -153,16 +160,19 @@ function topView(sc, shots) {
   for (const s of shots) for (const p of s.path) { xmin = Math.min(xmin, p[0]); xmax = Math.max(xmax, p[0]); ymin = Math.min(ymin, p[1]); ymax = Math.max(ymax, p[1]); }
   if (sc.cup) { xmax = Math.max(xmax, sc.cup[0] + 0.5); ymax = Math.max(ymax, 0.3); ymin = Math.min(ymin, -0.3); }
   const pad = (ymax - ymin) * 0.15 + 0.05;
-  const c = chart({ xmin: Math.min(0, xmin) - 0.2, xmax: xmax + 0.3, ymin: ymin - pad, ymax: ymax + pad, height: 300, zeroLine: true, xlabel: "towards the hole (m)", ylabel: "across (m): uphill is up", aria: `${sc.title}: top view` });
+  let b = { xmin: Math.min(0, xmin) - 0.2, xmax: xmax + 0.3, ymin: ymin - pad, ymax: ymax + pad };
+  if (sc.window) b = { xmin: sc.window.x[0], xmax: sc.window.x[1], ymin: sc.window.y[0], ymax: sc.window.y[1] };
+  const c = chart({ ...b, height: 300, zeroLine: true, xlabel: "towards the hole (m)", ylabel: "across (m): uphill is up", aria: `${sc.title}: top view` });
   if (sc.cup) {
     const [cx, cy] = sc.cup;
-    for (const [k, r] of sc.cup_r.entries()) {
-      const rx = c.sx(cx + r) - c.sx(cx), ry = c.sy(cy - r) - c.sy(cy);
-      c.svg.append(el("svg:ellipse", { cx: c.sx(cx), cy: c.sy(cy), rx, ry, fill: k ? "none" : css("--ink"), stroke: k ? css("--ref") : "none", "stroke-dasharray": k ? "5 4" : null, "stroke-width": 1.5, "fill-opacity": 0.85 }));
+    const big = Math.max(...sc.cups.map(k => k.r));
+    for (const k of sc.cups) {
+      const rx = c.sx(cx + k.r) - c.sx(cx), ry = c.sy(cy - k.r) - c.sy(cy);
+      c.svg.append(el("svg:ellipse", { cx: c.sx(cx), cy: c.sy(cy), rx, ry, fill: k.fill ? css("--ink") : "none", stroke: k.fill ? "none" : css("--ref"), "stroke-dasharray": k.fill ? null : "5 4", "stroke-width": 1.5, "fill-opacity": sc.window ? 0.18 : 0.85 }));
     }
-    c.svg.append(el("svg:text", { x: c.sx(cx) + 8, y: c.sy(cy + sc.cup_r[1]) - 6, text: "8-inch game cup (dashed), regulation cup (solid)" }));
+    c.svg.append(el("svg:text", { x: c.sx(cx) + 8, y: c.sy(cy + big) - 6, text: sc.cup_label || "" }));
   }
-  return { ...c, kind: "top" };
+  return { ...c, ...b, kind: "top" };
 }
 
 function drawPaths(view, shots) {
@@ -170,11 +180,12 @@ function drawPaths(view, shots) {
   shots.forEach((s, i) => {
     const g = el("svg:g", { "data-i": i });
     const P = view.kind === "top" ? (p) => [view.sx(p[0]), view.sy(p[1])] : (p) => [view.sx(p[0]), view.sy(p[2])];
-    const pts = s.path.filter(p => view.kind === "top" || (p[0] >= view.xmin && p[0] <= view.xmax));
+    const inWin = view.kind === "top" ? (p) => p[0] >= view.xmin && p[0] <= view.xmax && p[1] >= view.ymin && p[1] <= view.ymax : (p) => p[0] >= view.xmin && p[0] <= view.xmax;
+    const pts = s.path.filter(inWin);
     if (!pts.length) return;
     g.append(el("svg:path", { d: pts.map((p, k) => `${k ? "L" : "M"} ${P(p)[0].toFixed(1)} ${P(p)[1].toFixed(1)}`).join(" "), fill: "none", stroke: s.color, "stroke-width": 2.2, "stroke-linejoin": "round" }));
     for (const e of s.events) {
-      if (view.kind !== "top" && (e.x < view.xmin || e.x > view.xmax)) continue;
+      if (!inWin([e.x, e.y, e.z])) continue;
       const [x, y] = view.kind === "top" ? [view.sx(e.x), view.sy(e.y)] : [view.sx(e.x), view.sy(e.z)];
       if (e.kind === "bounce") g.append(el("svg:circle", { cx: x, cy: y, r: 3, fill: css("--surface"), stroke: s.color, "stroke-width": 1.5 }));
       else if (e.kind === "airborne") g.append(el("svg:path", { d: `M ${x} ${y - 9} l -5 8 l 10 0 z`, fill: css("--ref") }));
@@ -184,7 +195,7 @@ function drawPaths(view, shots) {
     const ball = el("svg:circle", { cx: P(pts[0])[0], cy: P(pts[0])[1], r: 5, fill: css("--surface"), stroke: s.color, "stroke-width": 2, opacity: 0 });
     g.append(ball);
     view.svg.append(g);
-    out.push({ g, ball, s, P });
+    out.push({ g, ball, s, P, inWin });
   });
   return out;
 }
@@ -205,20 +216,20 @@ function seriesCharts(shots) {
 }
 
 let anim = null;
-function play(groups) {
+function play(groups, rate = 1) {
   if (anim) cancelAnimationFrame(anim);
   const tmax = Math.max(...groups.map(G => G.s.path[G.s.path.length - 1][3]));
   const t0 = performance.now();
   const step = (now) => {
-    const t = reduceMotion ? tmax : (now - t0) / 1000;
+    const t = reduceMotion ? tmax : rate * (now - t0) / 1000;
     for (const G of groups) {
       const path = G.s.path;
       let k = path.findIndex(p => p[3] >= t);
       if (k < 0) k = path.length - 1;
       const [x, y] = G.P(path[k]);
-      G.ball.setAttribute("cx", x); G.ball.setAttribute("cy", y); G.ball.setAttribute("opacity", t < tmax + 0.8 ? 1 : 0);
+      G.ball.setAttribute("cx", x); G.ball.setAttribute("cy", y); G.ball.setAttribute("opacity", t < tmax + 0.8 * rate && G.inWin(path[k]) ? 1 : 0);
     }
-    if (t < tmax + 0.8) anim = requestAnimationFrame(step); else anim = null;
+    if (t < tmax + 0.8 * rate) anim = requestAnimationFrame(step); else anim = null;
   };
   anim = requestAnimationFrame(step);
 }
@@ -238,7 +249,13 @@ function renderScenario(sc) {
   const panel = document.getElementById("panel");
   panel.replaceChildren();
   const shots = sc.shots.map((s, i) => ({ ...s, color: color(i, sc.shots.length) }));
-  panel.append(el("div", { class: "panel-head" }, [el("h2", { text: sc.title }), el("button", { class: "btn", type: "button", id: "play", text: "Play" })]));
+  const ctl = el("div", { class: "ctl" }, [el("button", { class: "btn", type: "button", id: "play", text: "Play" })]);
+  if (sc.slowmo) {
+    const sel = el("select", { id: "rate", "aria-label": "Playback speed" });
+    for (const [v, l] of [[0.1, "1/10 speed"], [0.25, "1/4 speed"], [1, "real speed"]]) sel.append(el("option", { value: v, text: l }));
+    ctl.prepend(sel);
+  }
+  panel.append(el("div", { class: "panel-head" }, [el("h2", { text: sc.title }), ctl]));
   panel.append(el("div", { class: "qa" }, [
     el("p", {}, [el("span", { class: "label", text: "Question" }), document.createTextNode(sc.question)]),
     el("p", {}, [el("span", { class: "label", text: "Physics says" }), document.createTextNode(sc.expect)])]));
@@ -254,12 +271,12 @@ function renderScenario(sc) {
   if (sc.profile) {
     const sv = sideView(sc, shots);
     groups.push(...drawPaths(sv, shots));
-    charts.append(el("div", { class: "chart-label", text: "Side view" }), sv.svg);
+    charts.append(el("div", { class: "chart-label", text: sc.profile_note ? `Side view. ${sc.profile_note}` : "Side view" }), sv.svg);
   }
   if (sc.topview) {
     const tv = topView(sc, shots);
     groups.push(...drawPaths(tv, shots));
-    charts.append(el("div", { class: "chart-label", text: `Top view: the green falls towards the bottom of the chart (${(sc.slope.grade * 100).toFixed(0)} %)` }), tv.svg);
+    charts.append(el("div", { class: "chart-label", text: sc.slope ? `Top view: the green falls towards the bottom of the chart (${(sc.slope.grade * 100).toFixed(0)} %)` : "Top view: putts roll left to right, close up on the hole" }), tv.svg);
   }
   charts.append(keys());
   panel.append(charts);
@@ -274,7 +291,7 @@ function renderScenario(sc) {
     el("td", { text: s.state === "OnGround" ? "at rest" : s.state.toLowerCase() }), el("td", { text: fmt(s.rest[0], 2) }), el("td", { text: fmt(s.rest[1], 2) }), el("td", { text: s.carry ? fmt(s.carry, 1) : "–" }), el("td", { text: fmt(s.total, 1) })]));
   t.append(tb);
   panel.append(el("div", { class: "table-wrap" }, [t]));
-  document.getElementById("play").addEventListener("click", () => play(groups));
+  document.getElementById("play").addEventListener("click", () => { const r = document.getElementById("rate"); play(groups, r ? Number(r.value) : 1); });
 }
 
 function renderCup() {
@@ -289,8 +306,33 @@ function renderCup() {
   for (const r of C.rows) tb.append(el("tr", {}, [el("td", { text: `${(r.offset_frac * 100).toFixed(0)} % of the radius` }), el("td", { text: `${fmt(r.regulation, 2)} m/s` }), el("td", { text: `${fmt(r.game, 2)} m/s` })]));
   t.append(tb);
   panel.append(el("div", { class: "table-wrap" }, [t]));
+  if (C.map) panel.append(captureMaps(C.map));
   panel.append(el("div", { class: "qa" }, [
     el("p", {}, [el("span", { class: "label", text: "Decision" }), document.createTextNode(`The game caps capture at ${fmt(C.game_cap, 1)} m/s (D47): a putt heading about 3 m past on a stimp 10.5 green still drops if it is on line; a slammed one lips out. Uncapped, any putt on line up to ~3.1 m/s would drop, about 9 m of roll past the hole.`)])]));
+}
+
+function captureMaps(M) {
+  const wrap = el("div", { class: "charts" });
+  wrap.append(el("div", { class: "chart-label", text: "The cup model on a flat green: speed at the hole (rows, m/s) against how far the line passes from the centre (columns, share of the radius)" }));
+  const maps = el("div", { class: "maps" });
+  const col = { H: css("--good"), L: css("--ref"), ".": css("--grid") };
+  for (const m of M.maps) {
+    const cw = 12, ch = 12, L = 34, T = 6, W = L + 20 * cw + 6, H = T + M.speeds.length * ch + 30;
+    const svg = el("svg:svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": `${m.name}: capture map` });
+    m.rows.forEach((row, i) => {
+      const yy = T + (M.speeds.length - 1 - i) * ch;
+      [...row].forEach((k, j) => svg.append(el("svg:rect", { x: L + j * cw, y: yy, width: cw - 1, height: ch - 1, fill: col[k] })));
+      if (i % 2 === 1) svg.append(el("svg:text", { x: L - 5, y: yy + 9, "text-anchor": "end", text: M.speeds[i].toFixed(1), style: "font-size:9px" }));
+    });
+    for (const j of [0, 10, 19]) svg.append(el("svg:text", { x: L + j * cw + 5, y: T + M.speeds.length * ch + 12, "text-anchor": "middle", text: `${Math.round(M.offsets[j] * 100)}%`, style: "font-size:9px" }));
+    svg.append(el("svg:text", { x: L, y: H - 3, text: "line offset →", style: "font-size:9px" }));
+    maps.append(el("div", {}, [el("h3", { text: m.name }), svg]));
+  }
+  wrap.append(maps);
+  const k = el("div", { class: "keys" });
+  for (const [c, l] of [["H", "holed"], ["L", "lipped out"], [".", "missed"]]) k.append(el("span", {}, [el("span", { style: `display:inline-block;width:12px;height:12px;background:${col[c]}` }), document.createTextNode(l)]));
+  wrap.append(k);
+  return wrap;
 }
 
 function boot() {

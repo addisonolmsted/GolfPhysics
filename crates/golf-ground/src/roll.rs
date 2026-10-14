@@ -8,6 +8,7 @@ use golf_core::{Vec2, Vec3};
 use golf_course::SurfaceClass;
 use golf_flight::State;
 
+use crate::cup::CupEnd;
 use crate::materials::GroundMaterials;
 use crate::record::{EventKind, Phase, Recorder};
 use crate::terrain::Terrain;
@@ -40,16 +41,33 @@ impl Cup {
         Cup { xy, z, radius_m: golf_core::ball::GAME_CUP_RADIUS_M, capture_cap_mps: GAME_CAPTURE_CAP_MPS }
     }
 
-    /// the fastest a ball crossing on a line b from the centre can drop
+    /// the fastest a ball crossing on a line b from the centre can drop (the simple estimate; cup.rs decides)
     pub fn capture_speed(&self, b: f64) -> f64 {
         let v = capture_speed_for(b, self.radius_m);
         self.capture_cap_mps.map_or(v, |c| v.min(c))
+    }
+
+    /// How much of gravity pulls a ball into the hole, by its speed when it reaches the hole (D47). 1 without a cap.
+    /// With one, fast balls fall more slowly over the hole, so they dip less and kick off the far edge as a too-fast
+    /// putt does. The pull eases in smoothly from `v0`, chosen so a centred putt drops up to the cap: capture needs
+    /// v < v_phys·√scale with scale = (v0/v)^4, which holds up to v³ = v_phys·v0², i.e. v = cap.
+    pub fn hole_pull(&self, v_entry: f64) -> f64 {
+        let Some(cap) = self.capture_cap_mps else { return 1.0 };
+        let v_phys = HOLE_PULL_PHYS * capture_speed_for(0.0, self.radius_m);
+        if cap >= v_phys {
+            return 1.0;
+        }
+        let v0 = (cap * cap * cap / v_phys).sqrt();
+        if v_entry <= v0 { 1.0 } else { (v0 / v_entry).powi(4) }
     }
 }
 
 /// the game cup's capture-speed cap (D47): a putt on line drops below 1.8 m/s, about 3 m of roll past the hole at
 /// stimp 10.5. Uncapped, the 8-inch cup would take ~3.1 m/s through the centre, and pace would hardly matter.
 pub const GAME_CAPTURE_CAP_MPS: Option<f64> = Some(1.8);
+
+/// the cup model's centred capture speed as a share of the simple estimate's (measured with cup_map.rs)
+const HOLE_PULL_PHYS: f64 = 0.93;
 
 /// The fastest a ball can cross a cup of radius R and still drop: it must fall about its own radius while it crosses
 /// the chord at offset b from the centre. For the regulation cup at b = 0 this is 1.64 m/s, close to Holmes'
@@ -90,7 +108,6 @@ pub fn roll<T: Terrain + ?Sized>(terrain: &T, mats: &GroundMaterials, s0: State,
     let dt = ROLL_DT_S;
     let mut s = s0;
     let mut sliding = true;
-    let mut crossing_cup = false;
     rec.event(&s, EventKind::StartSlide);
     loop {
         if s.t - s0.t > MAX_ROLL_S {
@@ -177,32 +194,23 @@ pub fn roll<T: Terrain + ?Sized>(terrain: &T, mats: &GroundMaterials, s0: State,
         s.p.y += s.v.y * dt;
         s.t += dt;
 
-        // the cup: the centre's path crossing the hole. What decides capture is how far the line of travel passes
-        // from the centre (b), not where the ball first meets the rim
-        if let Some(c) = cup {
-            let near = seg_dist(c.xy, p0.xy(), s.p.xy());
-            if near < c.radius_m {
-                if !crossing_cup {
-                    crossing_cup = true;
-                    let v = s.v.len();
-                    let b = if v > 1e-9 { (s.v.xy() / s.v.xy().len()).cross(c.xy - p0.xy()).abs() } else { 0.0 };
-                    if v < c.capture_speed(b) {
-                        s.p = Vec3::new(c.xy.x, c.xy.y, c.z - 0.05);
-                        s.v = Vec3::ZERO;
-                        s.w = Vec3::ZERO;
-                        rec.sample(s, Phase::Rest);
-                        rec.event(&s, EventKind::Holed);
-                        return (RollEnd::Holed, s);
-                    }
-                    // lip-out (placeholder, M3): turned away from the centre, more the nearer the edge, and slowed
-                    let side = s.v.xy().cross(c.xy - s.p.xy()).signum();
-                    let ang = -side * 0.6 * (b / c.radius_m);
-                    let (ca, sa) = (golf_core::math::cos(ang), golf_core::math::sin(ang));
-                    s.v = Vec3::new(s.v.x * ca - s.v.y * sa, s.v.x * sa + s.v.y * ca, s.v.z) * 0.8;
-                    rec.event(&s, EventKind::LipOut);
+        // the cup: once the centre is over the hole, the cup's own contact model takes the ball (cup.rs)
+        if let Some(c) = cup
+            && seg_dist(c.xy, p0.xy(), s.p.xy()) < c.radius_m
+            && let Some(csf) = terrain.surface_at(c.xy.x, c.xy.y)
+        {
+            let cn = Vec3::new(-csf.dzdx, -csf.dzdy, 1.0).norm();
+            let rr = mats.get(terrain.class_at(c.xy.x, c.xy.y)).base_decel();
+            let pull = c.hole_pull(s.v.len());
+            let (end, r) = crate::cup::at_the_cup(c.xy.extend(csf.z), cn, c.radius_m, rr, pull, s, rec);
+            s = r;
+            match end {
+                CupEnd::Holed => return (RollEnd::Holed, s),
+                CupEnd::Airborne => {
+                    rec.event(&s, EventKind::Liftoff);
+                    return (RollEnd::Liftoff, s);
                 }
-            } else if near > c.radius_m + 0.01 {
-                crossing_cup = false;
+                CupEnd::Rolling => sliding = true,
             }
         }
     }

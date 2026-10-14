@@ -54,23 +54,34 @@ velocity is projected onto the tangent plane.
 - **Liftoff:** if the ground's curvature along the motion drops away faster than gravity (`h_ss v_h² < −g`, D46), the
   ball goes back to a hop.
 
-## The cup
+## The cup (`cup.rs`)
 
 The regulation cup is 108 mm across; **the game's cup is 8 inches (203.2 mm)** (D47), `Cup::game`. `Cup::regulation`
-stays for tests and the lab. Both are centred on the pin. A ball can drop only if it falls about its own radius while it crosses
-the hole. Crossing on a line `b` from the centre, the chord is `2√(R² − b²)`, so the fastest capture is
+stays for tests and the lab. Both are centred on the pin, with a 4-inch-deep liner.
 
-```
-v_cap(b) = 2 √(R² − b²) · √(g / (2 r))       (1.64 m/s through the centre; Holmes measured 1.63 m/s)
-```
+**The hole is geometry, not a rule** (D48). Once the ball's centre is over the hole, `cup.rs` takes it: a sphere
+meeting the rim (a circle at the ground), the liner wall, the bottom and the green around the hole, in a local frame
+tilted with the green. Contacts are stiff springs with damping set by a restitution (turf edge 0.3, liner 0.45,
+bottom 0.3), Coulomb friction that also turns the spin (turf 0.4, liner 0.25), and the green's rolling resistance on
+turf. 20 µs steps, only at the hole: a putt costs 0.16-0.27 ms in all. Holed means the whole ball is below the rim.
+Everything else falls out:
 
-What decides capture is the **line's** distance from the centre. The first version used the distance at the moment
-the ball met the rim, which is always ~R, so every putt lipped out. Faster than `v_cap` is a **lip-out**: the ball
-turns away from the centre (up to 0.6 rad, more the nearer the edge) and slows by 20 %. That rule is a placeholder.
-The flagstick is out for now.
+- dead weight drops; a firm putt hits the back wall below the rim and drops;
+- a too-fast putt hasn't fallen far enough by the far side, so the edge throws it up and out;
+- off-centre, the rim pushes the ball around the back of the cup: firm putts horseshoe out (a putt half a cup
+  out at 1.9 m/s leaves turned 40°), dying ones topple in the side door;
+- a ball whose centre never crosses the rim is never taken (the green holds its weight).
 
-The capture speed scales with the chord, so the 8-inch cup would take a centred putt up to ~3.1 m/s (a putt heading
-~9 m past at stimp 10.5). `GAME_CAPTURE_CAP_MPS` caps it at 1.8 m/s, a putt heading ~3 m past, so pace still matters.
+Measured on a flat green (Ground Lab, "The 8-inch cup" tab): the regulation cup takes a centred putt up to
+~1.9 m/s. Holmes' estimate, `v = 2√(R² − b²)·√(g/2r)` (1.64 m/s), assumes the ball must fall its full radius; in the
+model a ball that has fallen most of it meets the far edge near its equator and is turned back in. The uncapped
+8-inch cup takes ~2.9 m/s.
+
+**The game's speed cap** (`GAME_CAPTURE_CAP_MPS`, 1.8 m/s, D47) is applied inside the model, not as a rule: a ball
+that reaches the hole fast feels less of gravity while it is over the hole, `(v0/v)^4` for v > v0, with v0 set so a
+centred putt drops up to the cap (`Cup::hole_pull`). It dips less and kicks off the far edge, which is what a
+too-fast putt looks like; putts below ~1.5 m/s are untouched. The fall is quick (well under a frame at real speed),
+so the display can't tell.
 
 Why 8 inches and not 10: a make-rate model (flat putts, start-line error σ 1° for a good phone putter and 2.5° for a
 casual one, pace error 8 % and 15 %, aiming 0.4 m past; the error sizes are guesses until the pilot measures them):
@@ -109,7 +120,7 @@ All but the green and fairway are placeholders until feel tuning (D21).
 | Other drivers on fairway | PGA 19, LPGA 28, 70 mph 37 yd of roll; into rough the amateur driver rolls 9 yd | 15-40 yd: met |
 | Wedges on a green | PGA PW −0.1 yd (checks), amateur PW +1.7, LPGA PW +3.6; tour 7 iron +4.1, amateur 7 iron +14.9 | met |
 | Bunker | steep iron and wedge landings stop within a yard; a shallow driver landing runs 5.5 yd (a feel item); a near-vertical fast landing plugs | met |
-| Cup | holed through the centre up to 1.64 m/s and 30 mm off-centre at 1 m/s; lips out at 1.9 m/s; misses past the rim | met |
+| Cup | holed through the centre at 1.0 and 1.4 m/s and 30 mm off-centre at 1 m/s; lips out at 2.2 m/s; misses past the rim (cup model, D48) | met |
 | Settling | a ball dropped 0.5 m from every pin of the six fixtures (4 directions) rests within 3 m | met |
 | Fuzz | 900 random shots (speeds 40-170 mph, launch 5-35°, wind to 10 m/s, any direction) on three fixtures: no timeout, no NaN, no ball resting below the ground | met |
 | Determinism | bit-identical repeats | met |
@@ -141,7 +152,8 @@ fails if one stops behaving.
 
 ## Not yet
 
-- The flagstick (in or out is a game setting) and slam-dunks (a ball landing in the cup on the fly).
+- The flagstick (in or out is a game setting) and slam-dunks: a ball arriving in the air bounces on the height
+  function over the hole and is taken only once it rolls (`cup.rs` starts from rolling).
 - The putter's skid at the start of a putt (M4's putter impact); `roll_from` starts a putt already rolling.
 - Lips and walls (when `edges.json` exists), wet ground, grain on greens.
 - Lie-dependent variation inside a class (the lie layer, after M7).

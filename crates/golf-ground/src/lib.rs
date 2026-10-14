@@ -5,6 +5,7 @@
 //! rolling resistance (greens from stimp), until rest, the cup, water, a plug, or off the world. Material parameters
 //! come from data/materials/physics.v1.json.
 
+pub mod cup;
 pub mod bounce;
 pub mod materials;
 pub mod play;
