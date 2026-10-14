@@ -3,7 +3,7 @@
 
 use std::path::PathBuf;
 
-use golf_core::ball::{CUP_RADIUS_M, RADIUS_M};
+use golf_core::ball::{CUP_RADIUS_M, GAME_CUP_RADIUS_M, RADIUS_M};
 use golf_core::{Air, LaunchConditions, Vec2, Vec3};
 use golf_course::{Course, SurfaceClass};
 use golf_flight::{AeroParams, Wind};
@@ -111,6 +111,25 @@ fn the_cup_takes_putts_below_the_capture_speed() {
     // a holed ball rests in the cup
     let o = putt(0.8, 0.0);
     assert!((o.rest.xy() - Vec2::new(3.0, 0.0)).len() < 1e-9);
+}
+
+#[test]
+fn the_game_cup_forgives_line_but_caps_pace() {
+    let m = GroundMaterials::builtin();
+    let green = TestPlane::flat(SurfaceClass::GREEN);
+    let a = m.get(SurfaceClass::GREEN).base_decel();
+    let putt = |at_hole: f64, offset: f64| {
+        let d = 3.0;
+        let b = BallModel::new(&green, &m, AeroParams::builtin(), Air::trackman_normal(), Wind::CALM, Some(Cup::game(Vec2::new(d, offset), 0.0)));
+        b.roll_from(Vec2::ZERO, Vec3::new((at_hole * at_hole + 2.0 * a * d).sqrt(), 0.0, 0.0))
+    };
+    // 8 cm off line misses the regulation cup and drops in the 8-inch one
+    assert_eq!(putt(1.0, 0.08).state, RestState::Holed);
+    // faster than a regulation cup takes, under the cap: drops
+    assert_eq!(putt(1.7, 0.0).state, RestState::Holed);
+    // over the 1.8 m/s cap: lips out, though the physical limit for 8 inches is ~3.1 m/s
+    assert_ne!(putt(2.2, 0.0).state, RestState::Holed);
+    assert_ne!(putt(0.8, GAME_CUP_RADIUS_M + 0.005).state, RestState::Holed);
 }
 
 #[test]

@@ -240,7 +240,7 @@ fn cross_slope(m: &GroundMaterials) -> Value {
         shots.push(shot_json(&format!("read for stimp {stimp}: aim {:.0} cm above", above * 100.0), &o, Some((o.state == RestState::Holed, format!("{:?}", o.state)))));
     }
     let game = putt(m, 0.0, Some(Cup::game(Vec2::new(d, 0.0), 0.0)));
-    shots.push(shot_json("aimed straight, the 10-inch game cup", &game, Some((true, format!("{:?}", game.state)))));
+    shots.push(shot_json("aimed straight, the 8-inch game cup", &game, Some((true, format!("{:?}", game.state)))));
     let monotone = breaks.windows(2).all(|w| w[1] > w[0]);
     json!({"id": "cross", "title": "Break on a cross slope", "units": "m", "topview": true,
         "question": "Does a putt across a slope curve downhill, and does a faster green need more break?",
@@ -318,8 +318,8 @@ fn cup_table() -> Value {
                 "game": r2(golf_ground::capture_speed_for(f * golf_core::ball::GAME_CUP_RADIUS_M, golf_core::ball::GAME_CUP_RADIUS_M))})
         })
         .collect();
-    json!({"regulation_mm": 108, "game_mm": 254, "rows": rows,
-        "note": "The fastest a ball can cross the cup and drop, by how far its line passes from the centre (as a share of the radius). A 10-inch cup accepts any putt on line up to about 3.9 m/s, so pace hardly matters unless the speed is capped. For scale: a putt that would finish 0.4 m past crosses the hole at about 0.65 m/s on a stimp 10.5 green; 2 m past, about 1.45 m/s."})
+    json!({"regulation_mm": 108, "game_mm": 203, "game_cap": golf_ground::GAME_CAPTURE_CAP_MPS, "rows": rows,
+        "note": "The fastest a ball can cross the cup and drop, by how far its line passes from the centre (as a share of the radius). Uncapped, an 8-inch cup would accept any putt on line up to about 3.1 m/s, so the game caps it at 1.8 m/s (D47). For scale: a putt that would finish 0.4 m past crosses the hole at about 0.65 m/s on a stimp 10.5 green; 2 m past, about 1.45 m/s."})
 }
 
 pub fn run() -> Result<(), String> {

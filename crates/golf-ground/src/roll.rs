@@ -25,7 +25,7 @@ pub struct Cup {
     pub xy: Vec2,
     pub z: f64,
     pub radius_m: f64,
-    /// a big game cup captures fast putts (3.9 m/s through the centre at 10 inches); a cap keeps pace mattering
+    /// a big game cup captures fast putts (3.1 m/s through the centre at 8 inches); a cap keeps pace mattering
     pub capture_cap_mps: Option<f64>,
 }
 
@@ -35,7 +35,7 @@ impl Cup {
         Cup { xy, z, radius_m: CUP_RADIUS_M, capture_cap_mps: None }
     }
 
-    /// the game's cup (D47): 10 inches across, capture speed capped at GAME_CAPTURE_CAP_MPS
+    /// the game's cup (D47): 8 inches across, capture speed capped at GAME_CAPTURE_CAP_MPS
     pub fn game(xy: Vec2, z: f64) -> Cup {
         Cup { xy, z, radius_m: golf_core::ball::GAME_CUP_RADIUS_M, capture_cap_mps: GAME_CAPTURE_CAP_MPS }
     }
@@ -47,9 +47,9 @@ impl Cup {
     }
 }
 
-/// the game cup's capture-speed cap (None: the physical limit for its size). To be set by the owner from the Ground
-/// Lab (D47)
-pub const GAME_CAPTURE_CAP_MPS: Option<f64> = None;
+/// the game cup's capture-speed cap (D47): a putt on line drops below 1.8 m/s, about 3 m of roll past the hole at
+/// stimp 10.5. Uncapped, the 8-inch cup would take ~3.1 m/s through the centre, and pace would hardly matter.
+pub const GAME_CAPTURE_CAP_MPS: Option<f64> = Some(1.8);
 
 /// The fastest a ball can cross a cup of radius R and still drop: it must fall about its own radius while it crosses
 /// the chord at offset b from the centre. For the regulation cup at b = 0 this is 1.64 m/s, close to Holmes'

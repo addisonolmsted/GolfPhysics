@@ -56,7 +56,7 @@ velocity is projected onto the tangent plane.
 
 ## The cup
 
-The regulation cup is 108 mm across; **the game's cup is 10 inches (254 mm)** (D47), `Cup::game`. `Cup::regulation`
+The regulation cup is 108 mm across; **the game's cup is 8 inches (203.2 mm)** (D47), `Cup::game`. `Cup::regulation`
 stays for tests and the lab. Both are centred on the pin. A ball can drop only if it falls about its own radius while it crosses
 the hole. Crossing on a line `b` from the centre, the chord is `2√(R² − b²)`, so the fastest capture is
 
@@ -69,9 +69,21 @@ the ball met the rim, which is always ~R, so every putt lipped out. Faster than 
 turns away from the centre (up to 0.6 rad, more the nearer the edge) and slows by 20 %. That rule is a placeholder.
 The flagstick is out for now.
 
-The capture speed scales with the chord, so the 10-inch cup takes a centred putt up to ~3.9 m/s (a putt that would
-roll ~15 m past at stimp 10.5). `Cup::capture_cap_mps` (`GAME_CAPTURE_CAP_MPS`, open) caps it so pace still matters;
-~2.0 m/s would forgive a putt heading ~3.8 m past.
+The capture speed scales with the chord, so the 8-inch cup would take a centred putt up to ~3.1 m/s (a putt heading
+~9 m past at stimp 10.5). `GAME_CAPTURE_CAP_MPS` caps it at 1.8 m/s, a putt heading ~3 m past, so pace still matters.
+
+Why 8 inches and not 10: a make-rate model (flat putts, start-line error σ 1° for a good phone putter and 2.5° for a
+casual one, pace error 8 % and 15 %, aiming 0.4 m past; the error sizes are guesses until the pilot measures them):
+
+| Cup | Casual: 1 / 2 / 3 / 5 m | Good: 1 / 2 / 3 / 5 m |
+|---|---|---|
+| 4.25" regulation | 63 / 28 / 15 / 7 % | 98 / 72 / 49 / 25 % |
+| 6" | 78 / 42 / 26 / 13 % | 98 / 84 / 65 / 39 % |
+| **8", cap 1.8 m/s** | **85 / 53 / 34 / 17 %** | **98 / 87 / 74 / 50 %** |
+| 10", cap 2.0 m/s | 87 / 62 / 42 / 23 % | 98 / 87 / 77 / 58 % |
+
+Past 8 inches most misses are pace misses, which a wider cup doesn't help; and the putting assist adds forgiveness
+on top.
 
 ## Materials
 
@@ -123,7 +135,7 @@ fails if one stops behaving.
 | Hollow | rolls back and forth, settles at the bottom |
 | Drop (a rounded lip onto a lower level) | below ~0.9 m/s rolls over the lip; faster flies off it |
 | Steep face | a roll climbs it only above ~6 m/s; a pitch into it stops at the foot (4.5 m) |
-| Cross slope (2 %, 4 m putt) | aimed straight, breaks 65 cm and misses the 10-inch cup; read right it drops at stimp 8, 10.5 and 13 (reads 51, 67, 85 cm) |
+| Cross slope (2 %, 4 m putt) | aimed straight, breaks 65 cm and misses the 8-inch cup; read right it drops at stimp 8, 10.5 and 13 (reads 51, 67, 85 cm) |
 | Tour wedges | low spinner +5.6 yd (grabs, then a slow roll), check shot +1.2, full PW −2.0 (spins back), lob +0.1 |
 | Backstop (a slope behind the pin) | the full PW comes back 18.1 m down the slope; the check shot 6.4 m |
 

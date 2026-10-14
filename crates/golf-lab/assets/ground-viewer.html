@@ -160,7 +160,7 @@ function topView(sc, shots) {
       const rx = c.sx(cx + r) - c.sx(cx), ry = c.sy(cy - r) - c.sy(cy);
       c.svg.append(el("svg:ellipse", { cx: c.sx(cx), cy: c.sy(cy), rx, ry, fill: k ? "none" : css("--ink"), stroke: k ? css("--ref") : "none", "stroke-dasharray": k ? "5 4" : null, "stroke-width": 1.5, "fill-opacity": 0.85 }));
     }
-    c.svg.append(el("svg:text", { x: c.sx(cx) + 8, y: c.sy(cy + sc.cup_r[1]) - 6, text: "10-inch game cup (dashed), regulation cup (solid)" }));
+    c.svg.append(el("svg:text", { x: c.sx(cx) + 8, y: c.sy(cy + sc.cup_r[1]) - 6, text: "8-inch game cup (dashed), regulation cup (solid)" }));
   }
   return { ...c, kind: "top" };
 }
@@ -281,16 +281,16 @@ function renderCup() {
   const panel = document.getElementById("panel");
   panel.replaceChildren();
   const C = DATA.cup;
-  panel.append(el("h2", { text: "The 10-inch cup" }));
+  panel.append(el("h2", { text: "The 8-inch cup" }));
   panel.append(el("p", { class: "lede", text: C.note }));
   const t = el("table");
-  t.append(el("thead", {}, [el("tr", {}, ["Line passes the centre at", "Regulation 108 mm: fastest that drops", "Game 254 mm: fastest that drops"].map(h => el("th", { text: h })))]));
+  t.append(el("thead", {}, [el("tr", {}, ["Line passes the centre at", "Regulation 108 mm: fastest that drops", "Game 203 mm, uncapped"].map(h => el("th", { text: h })))]));
   const tb = el("tbody");
   for (const r of C.rows) tb.append(el("tr", {}, [el("td", { text: `${(r.offset_frac * 100).toFixed(0)} % of the radius` }), el("td", { text: `${fmt(r.regulation, 2)} m/s` }), el("td", { text: `${fmt(r.game, 2)} m/s` })]));
   t.append(tb);
   panel.append(el("div", { class: "table-wrap" }, [t]));
   panel.append(el("div", { class: "qa" }, [
-    el("p", {}, [el("span", { class: "label", text: "Decision" }), document.createTextNode("A cap on the game cup's capture speed keeps pace mattering. Without one, any putt on line up to ~3.9 m/s drops: about 15 m of roll past the hole on a stimp 10.5 green. A cap of ~2.0 m/s still forgives a firm putt (about 3.8 m past) but lips out a slammed one. Set GAME_CAPTURE_CAP_MPS in golf-ground once decided.")])]));
+    el("p", {}, [el("span", { class: "label", text: "Decision" }), document.createTextNode(`The game caps capture at ${fmt(C.game_cap, 1)} m/s (D47): a putt heading about 3 m past on a stimp 10.5 green still drops if it is on line; a slammed one lips out. Uncapped, any putt on line up to ~3.1 m/s would drop, about 9 m of roll past the hole.`)])]));
 }
 
 function boot() {
@@ -300,7 +300,7 @@ function boot() {
   st.append(el("span", { class: `chip ${ok === total ? "good" : "bad"}` }, [el("i", { class: "dot" }), document.createTextNode(`${ok} / ${total} shots behaved as physics predicts`)]));
   const tabs = document.getElementById("tabs");
   const views = DATA.scenarios.map(s => ({ id: s.id, name: s.title, ok: s.shots.every(x => !x.verdict || x.verdict.ok), run: () => renderScenario(s) }));
-  views.push({ id: "cup", name: "The 10-inch cup", ok: true, run: renderCup });
+  views.push({ id: "cup", name: "The 8-inch cup", ok: true, run: renderCup });
   let current = null;
   const select = (v) => { current = v; tabs.querySelectorAll("button").forEach(b => b.setAttribute("aria-selected", b.dataset.id === v.id)); v.run(); try { localStorage.setItem("groundlab-tab", v.id); } catch (e) {} };
   for (const v of views) {
