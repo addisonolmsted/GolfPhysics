@@ -1,0 +1,423 @@
+<title>Ball Size Viewer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* A 3D scene at real scale: the game's 8-inch cup, a 2.13 m flagstick, a tee box with a golfer, fairway, first cut and
+   rough. The ball is drawn at a chosen multiple of the real 42.67 mm ball, alone or four sizes side by side, from the
+   camera positions the game is likely to use. */
+:root {
+  --bg: #eef2ec; --surface: #ffffff; --ink: #1b2822; --muted: #5d6b64; --line: #d3dbd5; --accent: #1d6bb0; --chip: #f5f8f4;
+  --display: "Barlow Condensed", "Arial Narrow", sans-serif; --body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #111814; --surface: #18211c; --ink: #e2eae4; --muted: #94a59b; --line: #2b3831; --accent: #5eaaf0; --chip: #1f2a24; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --bg: #111814; --surface: #18211c; --ink: #e2eae4; --muted: #94a59b; --line: #2b3831; --accent: #5eaaf0; --chip: #1f2a24; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--body); }
+.wrap { max-width: 1240px; margin: 0 auto; padding-inline: 16px; padding-block: 20px 40px; display: grid; gap: 14px; }
+h1 { font: 700 2.2rem/1 var(--display); margin: 0; }
+.lede { color: var(--muted); margin: 0; max-width: 80ch; }
+.stage { position: relative; border-radius: 6px; overflow: hidden; border: 1px solid var(--line); background: #a9c8e8; aspect-ratio: 16 / 9; max-width: 100%; }
+@media (max-width: 640px) { .stage { aspect-ratio: 4 / 3; } }
+canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+.labels { position: absolute; inset: 0; pointer-events: none; }
+.tag { position: absolute; transform: translate(-50%, -100%); font: 500 11px/1.2 var(--mono); color: #fff; background: rgba(20, 30, 25, 0.72); padding: 2px 6px; border-radius: 3px; white-space: nowrap; }
+.tag.ball { background: rgba(29, 107, 176, 0.88); }
+.readout { position: absolute; left: 10px; bottom: 10px; font: 500 12px/1.4 var(--mono); color: #fff; background: rgba(20, 30, 25, 0.72); padding: 6px 9px; border-radius: 4px; max-width: calc(100% - 20px); }
+.bar { display: flex; flex-wrap: wrap; gap: 4px; }
+.bar button { font: 600 0.95rem/1 var(--display); letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); background: var(--surface); border: 1px solid var(--line); padding: 8px 10px; border-radius: 4px; cursor: pointer; }
+.bar button[aria-pressed="true"] { color: var(--surface); background: var(--accent); border-color: var(--accent); }
+.controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 14px; }
+.ctl { display: grid; gap: 6px; min-width: 0; }
+.ctl > span { font: 600 0.8rem/1 var(--display); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+.val { font: 600 1.4rem/1 var(--display); min-width: 3.5ch; }
+select { font: 500 0.9rem/1 var(--body); color: var(--ink); background: var(--chip); border: 1px solid var(--line); border-radius: 4px; padding: 7px 8px; }
+label.chk { display: inline-flex; gap: 6px; align-items: center; font-size: 0.92rem; }
+.note { color: var(--muted); font-size: 0.88rem; }
+.known { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 4px 16px; font: 400 0.85rem/1.4 var(--mono); color: var(--muted); }
+.known b { color: var(--ink); font-weight: 500; }
+</style>
+
+<div class="wrap">
+  <header style="display:grid;gap:8px">
+    <h1>Ball Size Viewer</h1>
+    <p class="lede">Everything is at real scale except the ball, which is drawn at the chosen multiple of a real ball (42.67 mm). Pick a camera, then drag to orbit and scroll or pinch to zoom.</p>
+  </header>
+  <div class="bar" id="presets" role="group" aria-label="Camera"></div>
+  <div class="stage" id="stage">
+    <canvas id="c" aria-label="3D view of golf balls next to course features"></canvas>
+    <div class="labels" id="labels"></div>
+    <div class="readout" id="readout"></div>
+  </div>
+  <div class="controls">
+    <div class="ctl"><span>Ball</span>
+      <div class="bar" id="mode" role="group" aria-label="Mode">
+        <button type="button" data-mode="single" aria-pressed="true">One size</button>
+        <button type="button" data-mode="compare" aria-pressed="false">1.0 · 1.5 · 2.0 · 2.5</button>
+      </div>
+    </div>
+    <div class="ctl"><span>Display radius × real</span>
+      <div class="row"><input type="range" id="scale" min="1" max="2.5" step="0.1" value="2" aria-label="Ball scale"><b class="val" id="scaleVal">2.0×</b></div>
+    </div>
+    <div class="ctl"><span>Skin</span>
+      <select id="skin" aria-label="Skin"><option value="white">White, dimpled</option><option value="line">Alignment line</option><option value="ember">Ember stripes</option><option value="galaxy">Galaxy</option><option value="check">Checker</option></select>
+    </div>
+    <div class="ctl"><span>Scene</span>
+      <div class="row">
+        <select id="cup" aria-label="Cup size"><option value="0.1016">Cup 8 in (game)</option><option value="0.054">Cup 4.25 in (regulation)</option></select>
+        <label class="chk"><input type="checkbox" id="pin" checked> Flagstick</label>
+        <label class="chk"><input type="checkbox" id="tags" checked> Labels</label>
+      </div>
+    </div>
+  </div>
+  <div class="known" id="known"></div>
+  <p class="note">The pixel readout is the ball's diameter on this canvas, and scaled to a 1080-pixel-tall screen (a TV, or a phone in landscape at about the same height). Camera lenses are typical game values (45-50° vertical; the approach view is zoomed to 22°).</p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+const REAL_R = 0.021335;
+const T = THREE;
+const canvas = document.getElementById("c"), stage = document.getElementById("stage");
+const renderer = new T.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.outputEncoding = T.sRGBEncoding;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = T.PCFSoftShadowMap;
+const scene = new T.Scene();
+scene.background = new T.Color(0xa9c8e8);
+scene.fog = new T.Fog(0xa9c8e8, 250, 700);
+const camera = new T.PerspectiveCamera(45, 16 / 9, 0.01, 2000);
+const controls = new T.OrbitControls(camera, canvas);
+controls.enableDamping = false;
+controls.minDistance = 0.08;
+controls.maxPolarAngle = Math.PI * 0.495;
+const aniso = renderer.capabilities.getMaxAnisotropy();
+
+scene.add(new T.HemisphereLight(0xe4efff, 0x5a7a3a, 0.65));
+const sun = new T.DirectionalLight(0xfff6e8, 1.05);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.bias = -0.0002;
+scene.add(sun, sun.target);
+
+/* ---------- textures ---------- */
+function canvasTex(w, h, draw, repeat) {
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  draw(c.getContext("2d"), w, h);
+  const t = new T.CanvasTexture(c);
+  t.encoding = T.sRGBEncoding; t.anisotropy = aniso;
+  if (repeat) { t.wrapS = t.wrapT = T.RepeatWrapping; t.repeat.set(repeat[0], repeat[1]); }
+  return t;
+}
+function rng(seed) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); }
+function noiseFill(g, w, h, base, spread, n, seed) {
+  g.fillStyle = base; g.fillRect(0, 0, w, h);
+  const r = rng(seed);
+  for (let i = 0; i < n; i++) { const l = (r() - 0.5) * spread; g.fillStyle = `rgba(${l > 0 ? 255 : 0},${l > 0 ? 255 : 0},${l > 0 ? 255 : 0},${Math.abs(l)})`; g.fillRect(r() * w, r() * h, 2, 2); }
+}
+const tex = {
+  green: canvasTex(512, 512, (g, w, h) => { noiseFill(g, w, h, "#4f9a3c", 0.12, 9000, 1); for (let i = 0; i < 8; i++) { g.fillStyle = i % 2 ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"; g.fillRect(i * w / 8, 0, w / 8, h); } }, [8, 8]),
+  fairway: canvasTex(512, 512, (g, w, h) => { noiseFill(g, w, h, "#5fa346", 0.12, 9000, 2); for (let i = 0; i < 2; i++) { g.fillStyle = i ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)"; g.fillRect(0, i * h / 2, w, h / 2); } }, [3, 40]),
+  cut: canvasTex(256, 256, (g, w, h) => noiseFill(g, w, h, "#5a9a40", 0.15, 4000, 3), [10, 10]),
+  rough: canvasTex(512, 512, (g, w, h) => noiseFill(g, w, h, "#4a7f30", 0.25, 16000, 4), [120, 120]),
+  tee: canvasTex(256, 256, (g, w, h) => { noiseFill(g, w, h, "#62a849", 0.12, 4000, 5); }, [4, 4]),
+};
+// dimples: a bump map of small circles in offset rows
+const dimples = (() => {
+  const c = document.createElement("canvas"); c.width = 1024; c.height = 512; const g = c.getContext("2d");
+  g.fillStyle = "#fff"; g.fillRect(0, 0, 1024, 512);
+  const rows = 22;
+  for (let j = 0; j < rows; j++) {
+    const lat = (j + 0.5) / rows * Math.PI - Math.PI / 2, y = (j + 0.5) / rows * 512;
+    const n = Math.max(6, Math.round(44 * Math.cos(lat)));
+    for (let i = 0; i < n; i++) {
+      const x = ((i + (j % 2) * 0.5) / n) * 1024;
+      const rx = 1024 / n * 0.42, ry = 512 / rows * 0.42;
+      const gr = g.createRadialGradient(x, y, 0, x, y, Math.max(rx, ry));
+      gr.addColorStop(0, "#555"); gr.addColorStop(1, "#fff");
+      g.fillStyle = gr; g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); g.fill();
+    }
+  }
+  const t = new T.CanvasTexture(c); t.anisotropy = aniso; return t;
+})();
+const skins = {
+  white: canvasTex(1024, 512, (g, w, h) => { g.fillStyle = "#f7f7f4"; g.fillRect(0, 0, w, h); }),
+  line: canvasTex(1024, 512, (g, w, h) => {
+    g.fillStyle = "#f7f7f4"; g.fillRect(0, 0, w, h);
+    g.fillStyle = "#c8281e"; g.fillRect(0, h / 2 - 7, w, 14);
+    g.fillStyle = "#1b1b1b"; g.font = "bold 46px sans-serif"; g.textAlign = "center"; g.fillText("GP 1", w * 0.25, h / 2 - 22); g.fillText("GP 1", w * 0.75, h / 2 - 22);
+  }),
+  ember: canvasTex(1024, 512, (g, w, h) => {
+    const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, "#ffcf3a"); gr.addColorStop(0.5, "#ff5a1f"); gr.addColorStop(1, "#a3120c");
+    g.fillStyle = gr; g.fillRect(0, 0, w, h);
+    g.fillStyle = "#1a0d08"; for (let i = -8; i < 20; i++) { g.beginPath(); g.moveTo(i * 80, 0); g.lineTo(i * 80 + 34, 0); g.lineTo(i * 80 + 34 + 240, h); g.lineTo(i * 80 + 240, h); g.fill(); }
+  }),
+  galaxy: canvasTex(1024, 512, (g, w, h) => {
+    g.fillStyle = "#130f3a"; g.fillRect(0, 0, w, h);
+    const r = rng(9);
+    for (let i = 0; i < 6; i++) { const x = r() * w, y = r() * h, gr = g.createRadialGradient(x, y, 0, x, y, 170); gr.addColorStop(0, "rgba(176,92,255,0.75)"); gr.addColorStop(1, "rgba(176,92,255,0)"); g.fillStyle = gr; g.fillRect(0, 0, w, h); }
+    g.fillStyle = "#fff"; for (let i = 0; i < 700; i++) { const s = r() * 2.4; g.fillRect(r() * w, r() * h, s, s); }
+  }),
+  check: canvasTex(1024, 512, (g, w, h) => { for (let i = 0; i < 16; i++) for (let j = 0; j < 8; j++) { g.fillStyle = (i + j) % 2 ? "#111" : "#f3f3f0"; g.fillRect(i * 64, j * 64, 64, 64); } g.fillStyle = "#19b36b"; g.fillRect(0, h / 2 - 10, w, 20); }),
+};
+
+/* ---------- the course ---------- */
+const GREEN_R = 14;
+const Y = { green: 0, fairway: -0.01, cut: -0.008, tee: 0.02, rough: -0.02 };
+function mat(map, extra = {}) { return new T.MeshStandardMaterial({ map, roughness: 1, metalness: 0, ...extra }); }
+function flat(geom, m, y) { geom.rotateX(-Math.PI / 2); const me = new T.Mesh(geom, m); me.position.y = y; me.receiveShadow = true; scene.add(me); return me; }
+// rough everywhere, with a hole where the green sits
+{
+  const s = new T.Shape(); s.moveTo(-400, -500); s.lineTo(400, -500); s.lineTo(400, 200); s.lineTo(-400, 200); s.lineTo(-400, -500);
+  const h = new T.Path(); h.absarc(0, 0, GREEN_R + 0.6, 0, Math.PI * 2, true); s.holes.push(h);
+  flat(new T.ShapeGeometry(s, 64), mat(tex.rough), Y.rough);
+}
+// the collar / first cut ring and the fairway (shape y = -z)
+{
+  const s = new T.Shape(); s.absarc(0, 0, GREEN_R + 0.6, 0, Math.PI * 2, false);
+  const h = new T.Path(); h.absarc(0, 0, GREEN_R, 0, Math.PI * 2, true); s.holes.push(h);
+  flat(new T.ShapeGeometry(s, 96), mat(tex.cut), Y.cut);
+  // the fairway and its first cut run under the green from 5 m out (clear of the cup), so no holes are needed
+  const strip = (w0, w1, m, y) => { const f = new T.Shape(); f.moveTo(-w0, -5); f.lineTo(w0, -5); f.lineTo(w1, -300); f.lineTo(-w1, -300); f.lineTo(-w0, -5); flat(new T.ShapeGeometry(f), m, y); };
+  strip(16, 17, mat(tex.fairway), Y.fairway);
+  strip(18.5, 19.5, mat(tex.cut), Y.cut - 0.004);
+}
+// the tee box, raised 2 cm
+{
+  const g = new T.BoxGeometry(12, 0.3, 12); const m = new T.Mesh(g, [mat(tex.cut), mat(tex.cut), mat(tex.tee), mat(tex.cut), mat(tex.cut), mat(tex.cut)]);
+  m.position.set(0, Y.tee - 0.15, 296); m.receiveShadow = true; scene.add(m);
+  for (const x of [-3.5, 3.5]) {
+    const mk = new T.Mesh(new T.CylinderGeometry(0.07, 0.08, 0.14, 24), new T.MeshStandardMaterial({ color: 0x2a62c9, roughness: 0.5 }));
+    mk.position.set(x, Y.tee + 0.07, 292); mk.castShadow = true; scene.add(mk);
+  }
+}
+// the green with the cup hole, rebuilt when the cup changes
+let greenMesh = null, cupGroup = null, cupR = 0.1016;
+function buildGreen() {
+  if (greenMesh) { scene.remove(greenMesh); greenMesh.geometry.dispose(); }
+  if (cupGroup) scene.remove(cupGroup);
+  const s = new T.Shape(); s.absarc(0, 0, GREEN_R, 0, Math.PI * 2, false);
+  const h = new T.Path(); h.absarc(0, 0, cupR, 0, Math.PI * 2, true); s.holes.push(h);
+  greenMesh = flat(new T.ShapeGeometry(s, 128), mat(tex.green), Y.green);
+  cupGroup = new T.Group();
+  const depth = 0.1016;
+  const soil = new T.Mesh(new T.CylinderGeometry(cupR, cupR, 0.025, 64, 1, true), new T.MeshStandardMaterial({ color: 0x4a3626, roughness: 1, side: T.BackSide }));
+  soil.position.y = -0.0125;
+  const liner = new T.Mesh(new T.CylinderGeometry(cupR * 0.995, cupR * 0.995, depth - 0.025, 64, 1, true), new T.MeshStandardMaterial({ color: 0xe9ebe8, roughness: 0.6, side: T.BackSide }));
+  liner.position.y = -0.025 - (depth - 0.025) / 2;
+  const bottom = new T.Mesh(new T.CircleGeometry(cupR, 64), new T.MeshStandardMaterial({ color: 0x2b2b2b, roughness: 1 }));
+  bottom.rotation.x = -Math.PI / 2; bottom.position.y = -depth;
+  cupGroup.add(soil, liner, bottom);
+  scene.add(cupGroup);
+}
+buildGreen();
+// the flagstick: 2.13 m above the green, 1 inch thick, in the cup
+const pin = new T.Group();
+{
+  const stick = new T.Mesh(new T.CylinderGeometry(0.0127, 0.0127, 2.13 + 0.1, 20), new T.MeshStandardMaterial({ color: 0xf2f2ee, roughness: 0.4 }));
+  stick.position.y = (2.13 - 0.1) / 2; stick.castShadow = true;
+  const flag = new T.Mesh(new T.PlaneGeometry(0.5, 0.35, 10, 1), new T.MeshStandardMaterial({ color: 0xf4c430, roughness: 0.8, side: T.DoubleSide }));
+  const pos = flag.geometry.attributes.position;
+  for (let i = 0; i < pos.count; i++) { const x = pos.getX(i); pos.setZ(i, Math.sin((x + 0.25) * 9) * 0.03 * (x + 0.25)); }
+  flag.geometry.computeVertexNormals();
+  flag.position.set(0.25 + 0.0127, 2.13 - 0.175, 0); flag.castShadow = true;
+  pin.add(stick, flag);
+  scene.add(pin);
+}
+// rough grass: 60 mm (40-75 mm) blades around the rough lie
+const ROUGH_BALL = new T.Vector3(-20.5, 0, -150);
+{
+  const n = 16000, geo = new T.ConeGeometry(0.0016, 1, 3); geo.translate(0, 0.5, 0);
+  const inst = new T.InstancedMesh(geo, new T.MeshStandardMaterial({ color: 0x3f7a2b, roughness: 1 }), n);
+  const r = rng(11), m4 = new T.Matrix4(), q = new T.Quaternion(), e = new T.Euler();
+  for (let i = 0; i < n; i++) {
+    const a = r() * Math.PI * 2, d = Math.sqrt(r()) * 2.2, hgt = 0.04 + r() * 0.035;
+    e.set((r() - 0.5) * 0.6, r() * Math.PI, (r() - 0.5) * 0.6); q.setFromEuler(e);
+    m4.compose(new T.Vector3(ROUGH_BALL.x + Math.cos(a) * d, Y.rough, ROUGH_BALL.z + Math.sin(a) * d), q, new T.Vector3(1, hgt, 1));
+    inst.setMatrixAt(i, m4);
+    inst.setColorAt(i, new T.Color().setHSL(0.27 + r() * 0.05, 0.5, 0.22 + r() * 0.12));
+  }
+  scene.add(inst);
+}
+// a golfer (1.78 m) and a driver at the tee; a putter for the putt
+function limb(a, b, r, color) {
+  const d = new T.Vector3().subVectors(b, a), m = new T.Mesh(new T.CylinderGeometry(r, r, d.length(), 14), new T.MeshStandardMaterial({ color, roughness: 0.8 }));
+  m.position.copy(a).addScaledVector(d, 0.5); m.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), d.clone().normalize()); m.castShadow = true; return m;
+}
+const TEE = new T.Vector3(0, Y.tee, 295.5);
+const golfer = new T.Group();
+{
+  const gx = TEE.x - 0.85, gz = TEE.z, V = (x, y, z) => new T.Vector3(x, y, z);
+  golfer.add(limb(V(gx, 0.02, gz - 0.17), V(gx + 0.05, 0.86, gz - 0.1), 0.065, 0x2f3540));
+  golfer.add(limb(V(gx, 0.02, gz + 0.17), V(gx + 0.05, 0.86, gz + 0.1), 0.065, 0x2f3540));
+  golfer.add(limb(V(gx + 0.05, 0.86, gz), V(gx + 0.2, 1.45, gz), 0.16, 0xe9eef2));
+  const head = new T.Mesh(new T.SphereGeometry(0.105, 24, 16), new T.MeshStandardMaterial({ color: 0xd9a77e, roughness: 0.8 }));
+  head.position.set(gx + 0.26, 1.64, gz); head.castShadow = true; golfer.add(head);
+  const cap = new T.Mesh(new T.SphereGeometry(0.11, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), new T.MeshStandardMaterial({ color: 0x1d3f6e, roughness: 0.7 }));
+  cap.position.copy(head.position).add(V(0, 0.02, 0)); golfer.add(cap);
+  const hands = V(gx + 0.42, 0.78, gz - 0.02);
+  golfer.add(limb(V(gx + 0.2, 1.4, gz - 0.13), hands, 0.04, 0xe9eef2));
+  golfer.add(limb(V(gx + 0.2, 1.4, gz + 0.13), hands, 0.04, 0xe9eef2));
+  const clubHead = V(TEE.x - 0.07, Y.tee + 0.03, TEE.z + 0.02);
+  golfer.add(limb(hands, clubHead, 0.006, 0x222222));
+  const dh = new T.Mesh(new T.SphereGeometry(1, 24, 16), new T.MeshStandardMaterial({ color: 0x18191c, roughness: 0.3, metalness: 0.4 }));
+  dh.scale.set(0.055, 0.031, 0.06); dh.position.set(TEE.x - 0.075, Y.tee + 0.032, TEE.z); dh.castShadow = true; golfer.add(dh);
+  scene.add(golfer);
+}
+const PUTT = new T.Vector3(0, Y.green, 3);
+{
+  const ph = new T.Mesh(new T.BoxGeometry(0.105, 0.025, 0.03), new T.MeshStandardMaterial({ color: 0x9aa0a6, roughness: 0.3, metalness: 0.7 }));
+  ph.position.set(PUTT.x - 0.0, Y.green + 0.0125, PUTT.z + 0.1); ph.castShadow = true; scene.add(ph);
+  scene.add(limb(new T.Vector3(PUTT.x - 0.04, Y.green + 0.02, PUTT.z + 0.1), new T.Vector3(PUTT.x - 0.05, 0.86, PUTT.z + 0.32), 0.006, 0x222222));
+}
+// tee pegs are placed per ball (54 mm long, 25 mm out of the ground)
+const balls = [];
+const ballGeo = new T.SphereGeometry(1, 64, 40);
+const ballMat = new T.MeshStandardMaterial({ map: skins.white, bumpMap: dimples, bumpScale: 0.35, roughness: 0.38, metalness: 0 });
+const pegGeo = new T.CylinderGeometry(0.0065, 0.0028, 0.025, 16); pegGeo.translate(0, 0.0125, 0);
+const pegMat = new T.MeshStandardMaterial({ color: 0xf2f2ee, roughness: 0.6 });
+
+/* ---------- camera presets ---------- */
+const V3 = (x, y, z) => new T.Vector3(x, y, z);
+const presets = [
+  { id: "putt", name: "Putt, 3 m", ball: () => PUTT, cam: V3(0.15, 1.25, 5.3), look: V3(0, 0, 0.4), fov: 45, spread: [1, 0, 0] },
+  { id: "hole", name: "At the hole", ball: () => V3(cupR + 0.09, 0, 0.12), cam: V3(0.65, 0.42, 0.95), look: V3(0.05, -0.01, 0), fov: 45, arc: true },
+  { id: "chip", name: "Chip, 18 m", ball: () => V3(4, Y.fairway, 17.5), cam: V3(4.7, 1.65, 20.4), look: V3(0.8, 0, 0.5), fov: 45, spread: [1, 0, 0] },
+  { id: "side", name: "Green side, 12 m", ball: () => V3(1.2, 0, 1.6), cam: V3(11.5, 1.7, 5), look: V3(0.6, 0.15, 0.6), fov: 45, spread: [0, 0, 1] },
+  { id: "approach", name: "Approach, 120 m", ball: () => V3(2.2, 0, -2.5), cam: V3(-3, 3, 122), look: V3(1, 0.5, 0), fov: 22, spread: [1, 0, 0] },
+  { id: "tee", name: "Tee shot", ball: () => TEE, cam: V3(0.35, 1.75, 299.6), look: V3(0, 0.3, 270), fov: 50, spread: [1, 0, 0], tee: true },
+  { id: "rough", name: "Rough lie", ball: () => V3(ROUGH_BALL.x, Y.rough - 0.012, ROUGH_BALL.z), cam: V3(ROUGH_BALL.x + 0.55, 0.62, ROUGH_BALL.z + 1.35), look: V3(ROUGH_BALL.x, 0, ROUGH_BALL.z), fov: 45, spread: [1, 0, 0] },
+  { id: "skin", name: "Ball cam", ball: () => TEE, cam: V3(0.2, Y.tee + 0.2, 296.0), look: V3(0, Y.tee + 0.05, 295.5), fov: 40, spread: [1, 0, 0], tee: true },
+];
+let preset = presets[0], mode = "single", scale = 2.0;
+
+function placeBalls() {
+  for (const b of balls) { scene.remove(b.mesh); if (b.peg) scene.remove(b.peg); }
+  balls.length = 0;
+  const scales = mode === "compare" ? [1.0, 1.5, 2.0, 2.5] : [scale];
+  const base = preset.ball();
+  scales.forEach((s, i) => {
+    const R = REAL_R * s;
+    let p = base.clone();
+    if (scales.length > 1) {
+      if (preset.arc) {
+        const a = -0.9 + i * 0.6, rr = cupR + 0.075 + R;
+        p = V3(Math.cos(a) * rr, 0, Math.sin(a) * rr + 0.02);
+      } else {
+        const d = camera.position.distanceTo(base);
+        const step = Math.max(0.17, preset.id === "approach" ? 1.2 : d * 0.05);
+        const k = i - 1.5;
+        p.add(V3(preset.spread[0] * k * step, 0, preset.spread[2] * k * step));
+      }
+    }
+    const m = new T.Mesh(ballGeo, ballMat); m.scale.setScalar(R); m.castShadow = true; m.receiveShadow = true;
+    m.rotation.set(0.25, 1.1 + i * 0.7, 0.05);
+    let lift = 0;
+    let peg = null;
+    if (preset.tee) { peg = new T.Mesh(pegGeo, pegMat); peg.position.set(p.x, p.y, p.z); peg.castShadow = true; scene.add(peg); lift = 0.025 - R * 0.12; }
+    m.position.set(p.x, p.y + lift + R, p.z);
+    scene.add(m);
+    balls.push({ mesh: m, R, s, peg });
+  });
+}
+
+function applyPreset(p) {
+  preset = p;
+  camera.fov = p.fov; camera.position.copy(p.cam); controls.target.copy(p.look); camera.updateProjectionMatrix(); controls.update();
+  placeBalls();
+  const f = p.ball();
+  sun.position.set(f.x + 6, 12, f.z + 4); sun.target.position.copy(f);
+  const span = p.id === "approach" ? 10 : p.id === "side" ? 6 : 3.5;
+  Object.assign(sun.shadow.camera, { left: -span, right: span, top: span, bottom: -span, near: 0.5, far: 40 });
+  sun.shadow.camera.updateProjectionMatrix();
+  document.querySelectorAll("#presets button").forEach(b => b.setAttribute("aria-pressed", b.dataset.id === p.id));
+  try { localStorage.setItem("ballsize-preset", p.id); } catch (e) {}
+  render();
+}
+
+/* ---------- labels and readout ---------- */
+const known = [
+  { at: () => V3(0, 2.13, 0), text: "Flagstick 2.13 m (7 ft)", show: () => pin.visible },
+  { at: () => V3(-cupR, 0.01, 0), text: () => `Cup ${Math.round(cupR * 2000)} mm` },
+  { at: () => V3(TEE.x - 0.85 + 0.26, 1.8, TEE.z), text: "Golfer 1.78 m" },
+  { at: () => V3(3.5, Y.tee + 0.16, 292), text: "Tee marker 14 cm" },
+  { at: () => V3(TEE.x - 0.075, Y.tee + 0.075, TEE.z - 0.02), text: "Driver head 12 cm long" },
+  { at: () => V3(ROUGH_BALL.x - 0.4, Y.rough + 0.08, ROUGH_BALL.z), text: "Rough 40-75 mm" },
+  { at: () => V3(PUTT.x - 0.06, Y.green + 0.05, PUTT.z + 0.1), text: "Putter head 105 mm" },
+];
+document.getElementById("known").innerHTML = [
+  ["Real ball", "42.67 mm across"], ["Game cup", "203 mm (8 in), 102 mm deep"], ["Regulation cup", "108 mm (4.25 in)"],
+  ["Flagstick", "2.13 m tall, 25 mm thick"], ["Tee peg", "25 mm out of the ground"], ["Driver head", "about 120 × 60 mm"],
+  ["Putter head", "105 × 25 mm"], ["Rough", "40-75 mm grass"], ["Golfer", "1.78 m"]].map(([a, b]) => `<div><b>${a}</b> ${b}</div>`).join("");
+const labelsEl = document.getElementById("labels"), readout = document.getElementById("readout");
+function project(v) {
+  const p = v.clone().project(camera);
+  return { x: (p.x + 1) / 2 * canvas.clientWidth, y: (1 - p.y) / 2 * canvas.clientHeight, front: p.z < 1 && p.z > -1 };
+}
+function diameterPx(b) {
+  const up = V3(0, 1, 0).applyQuaternion(camera.quaternion);
+  const a = project(b.mesh.position), c = project(b.mesh.position.clone().addScaledVector(up, b.R));
+  return 2 * Math.hypot(a.x - c.x, a.y - c.y);
+}
+function updateOverlay() {
+  const show = document.getElementById("tags").checked;
+  const frag = [];
+  if (show) {
+    for (const k of known) {
+      if (k.show && !k.show()) continue;
+      const at = k.at(); if (at.distanceTo(camera.position) > 180) continue;
+      const p = project(at);
+      if (!p.front || p.x < 0 || p.y < 0 || p.x > canvas.clientWidth || p.y > canvas.clientHeight) continue;
+      frag.push(`<div class="tag" style="left:${p.x}px;top:${p.y}px">${typeof k.text === "function" ? k.text() : k.text}</div>`);
+    }
+    if (balls.length > 1) for (const b of balls) {
+      const p = project(b.mesh.position.clone().add(V3(0, b.R * 1.4, 0)));
+      if (p.front) frag.push(`<div class="tag ball" style="left:${p.x}px;top:${p.y - 2}px">${b.s.toFixed(1)}×</div>`);
+    }
+  }
+  labelsEl.innerHTML = frag.join("");
+  const H = canvas.clientHeight;
+  readout.innerHTML = balls.map(b => {
+    const px = diameterPx(b);
+    return `${b.s.toFixed(1)}× · ${(b.R * 2000).toFixed(0)} mm · ${px.toFixed(1)} px here · ${(px / H * 1080).toFixed(1)} px at 1080p`;
+  }).join("<br>");
+}
+
+function render() { renderer.render(scene, camera); updateOverlay(); }
+controls.addEventListener("change", render);
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); render();
+}
+new ResizeObserver(resize).observe(stage);
+
+/* ---------- controls ---------- */
+const bar = document.getElementById("presets");
+for (const p of presets) {
+  const b = document.createElement("button"); b.type = "button"; b.dataset.id = p.id; b.textContent = p.name; b.setAttribute("aria-pressed", "false");
+  b.addEventListener("click", () => applyPreset(p)); bar.append(b);
+}
+const scaleEl = document.getElementById("scale"), scaleVal = document.getElementById("scaleVal");
+scaleEl.addEventListener("input", () => { scale = Number(scaleEl.value); scaleVal.textContent = `${scale.toFixed(1)}×`; placeBalls(); render(); });
+document.querySelectorAll("#mode button").forEach(b => b.addEventListener("click", () => {
+  mode = b.dataset.mode;
+  document.querySelectorAll("#mode button").forEach(x => x.setAttribute("aria-pressed", x === b));
+  scaleEl.disabled = mode === "compare"; placeBalls(); render();
+}));
+document.getElementById("skin").addEventListener("change", (e) => { ballMat.map = skins[e.target.value]; ballMat.needsUpdate = true; render(); });
+document.getElementById("cup").addEventListener("change", (e) => { cupR = Number(e.target.value); buildGreen(); placeBalls(); render(); });
+document.getElementById("pin").addEventListener("change", (e) => { pin.visible = e.target.checked; render(); });
+document.getElementById("tags").addEventListener("change", render);
+
+let start = presets[0];
+try { const s = localStorage.getItem("ballsize-preset"); start = presets.find(p => p.id === location.hash.slice(1)) || presets.find(p => p.id === s) || start; } catch (e) {}
+resize();
+applyPreset(start);
+</script>
