@@ -143,8 +143,75 @@ to calibrate on the swing corpus in M5:
 | `face_rad` | the phone's rotation about the shaft axis at impact relative to address, mapped to face angle | open = positive; gain fitted per grip |
 | `dynamic_loft_rad` | the club's static loft + shaft lean (the phone's pitch at impact relative to address) | clamped per club |
 | `head_speed_mps` | a speed index from `|vel_mps|` and `omega_radps`, through the universal speed curve (below) | |
-| `strike_offset_m` | none at first (center strike); later from how far the impact orientation is from address (sole tilt) | a source of believable mishits |
+| `strike_m` | heel-toe from the toe-up change at impact; high-low centred (below) | believable mishits, never a miss |
 | `quality` | from `quality` flags and consistency checks | low quality → the server can refuse the swing ("swing not read") |
+
+### Orientation and rotation at impact → face, loft, path, attack, strike (D56-D58, M5)
+
+Everything is **relative to address**: the phone has no reliable heading indoors. At address (pointing down, still
+for 1.5 s) the face is taken as square to the target at the club's static loft. A **virtual clubhead** is fixed to
+the phone (the phone is the grip, its long axis the shaft). Which side the target is on, and so handedness, comes
+from the takeaway: the head always moves away from the target first. A left-hander is mirrored here.
+
+**Interpolate to the impact instant.** The face closes at ~1,000-2,000°/s through impact: 10-20° between samples at
+100 Hz. The orientation is slerped to the sub-sample moment the swing angle crosses the address position; the
+nearest sample would make the face useless.
+
+With `R = R_impact · R_address⁻¹`:
+
+| Delivery | From | How |
+|---|---|---|
+| `face_rad` | orientation | the address face normal rotated by `R`: its horizontal angle to the target line. Picks up the twist about the shaft, and a toe-up or toe-down shaft turning a lofted face (as on a sidehill lie) |
+| `dynamic_loft_rad` | orientation | the same rotated normal: its elevation (static loft, shaft lean, the face opening or closing) |
+| `path_rad`, `attack_rad` | rotation rate | the head's velocity ≈ `ω × r` (the gyro's rate crossed with the shaft vector, hands → head): its horizontal and vertical angles. First version; a body-pivot (hub) term with a fixed arm length is calibrated with the launch-monitor sessions |
+| `head_speed_mps` | rotation rate | a speed index from `|ω|` and the radius, through the speed curve (below) |
+| `strike_m.x` (heel-toe) | orientation | the toe-up change, below |
+| `strike_m.y` (high-low) | none | **centred** (D57) |
+
+Face and loft come from rotating one vector, so they can't disagree with each other, and they go straight into the
+impact model's D-plane.
+
+**Heel-toe strike from the toe-up change (D56).** Not a lie angle read off the attitude: Euler-style angles depend
+on rotation order and mix in shaft lean and face rotation, which are both large and fast at impact (the likely
+reason the raw lie angle varied so much in the SwingApp tests). Instead, rotate the address **toe vector** `t0`
+(along the face towards the toe, horizontal at address) by `R`:
+
+```
+toe_up = asin(t · up)                                   (lean and face rotation don't lift it)
+Δ = toe_up_impact − toe_up_address − μ                  (μ: the population's typical droop, one constant)
+strike_x = −cap · tanh(softshrink(Δ, d) · g / cap)     (toe up → towards the heel; cap ≈ 15 mm)
+```
+
+- `μ` makes an ordinary swing read centred (real swings come in slightly toe-up); `softshrink` (zero inside ±d,
+  linear beyond) means everyday wobble gives no mishit, with no jump at the edge; `tanh` caps the worst swings at a
+  clear heel or toe strike, never the hosel or a miss.
+- One mapping for everyone (D22). `d` and `g` are set from the pilot's population, aiming for ~70-80 % of casual
+  full swings within ±4 mm and ~5 % beyond 10 mm (a feel choice for the owner), fitted by a `golf-lab` tool from
+  the exported raw swings.
+- The impact model makes these mild (M4): a 15 mm toe strike on a driver loses a few % of ball speed and adds
+  gear-effect draw. A toe-up shaft also turns a lofted face left, through `face_rad`: both are real, and for woods
+  they partly cancel (as in real golf). Tune with both in.
+
+**The floor: every read swing makes a shot (D58).** No whiffs, no shanks, no hosel strikes: the phone can't tell
+them from noise, so a model that produced them would mostly punish good swings with noisy readings, and they teach
+nothing. Bad swings still make bad shots: a slice, a hook, a pull, a toe-struck drive that comes up short.
+- The strike is heel-toe only and capped (above); high-low, fat and thin stay centred (D57).
+- `face_rad` and `path_rad` are clamped to about ±15°: the worst miss is a big curve, never a ball going sideways.
+- A swing whose data fails the quality checks (badly clipped, interrupted, no proper address) is **"swing not
+  read"**: no shot, no stroke, swing again. Never a whiff made out of bad data.
+- Practice swings need no special case: a swing counts only after the address pose, the player's signal of intent.
+
+**Sensitivity and gains.** With real physics, 1° of face is several yards off line, and a phone with no clubhead
+weight is noisier than a club. The raw angles get **fixed gains below 1** (one mapping for everyone), set from the
+pilot so a casual player's spread gives believable misses; the target-aware assist trims the rest.
+
+**Saturation.** Older phones clip the gyro around 2,000°/s, and fast swings pass it near impact: the orientation
+drifts and the speed reads low. Clipped samples are detected and bridged from both sides; the speed curve treats a
+clipped swing as "at least this fast". The pilot shows how often it happens on which phones.
+
+**What the pilot must answer:** the noise of face, path, loft and attack on swings meant to be straight (it sets the
+gains); whether skilled players can produce a fade or a draw on purpose (an optional block for experienced
+players); the toe-up distribution (it sets `μ`, `d`, `g`); how often fast swings clip.
 
 ### Speed: one curve for everyone (D22, D23)
 
