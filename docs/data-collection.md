@@ -38,7 +38,7 @@ pointing-down check are shared with SwingApp through `SwingApp/Shared/`, so dete
    The hold is saved with every swing.
 4. **The protocol**, block by block, with a workflow strip across the top (Practice → Full → Hard → ¾ → (Fade →
    Draw) → Chips → Putts) and a 3D target picture for the current block. For each swing:
-   - **Address:** point the phone down and hold still. After **1.5 s of stillness** the phone vibrates and the
+   - **Address:** point the phone down and hold still. After **1.0 s of stillness** (1.5 s before 2026-10-15) the phone vibrates and the
      screen flashes green: armed.
    - **Swing.** The swing ends at the **impact crossing** (below), the phone vibrates again, and recording continues
      for 1 s of follow-through.
@@ -53,10 +53,10 @@ All angles are in the **address frame**: the phone's orientation at the moment i
 
 | Step | Rule (v1 values, tunable) |
 |---|---|
-| Pointing down | from CoreMotion's gravity vector: the phone's +y within 35° of straight down to start settling, within 45° to stay (hysteresis) |
-| Still | for 1.5 s, on **smoothed** rotation rate and user acceleration (0.15 s time constant): settle below 0.35 rad/s and 0.06 g, break only above 0.7 rad/s or 0.12 g. One twitch no longer restarts the count (before 2026-10-14 every sample had to pass). |
+| Pointing down | from CoreMotion's gravity vector: the phone's +y within 45° of straight down to start settling, within 55° to stay (hysteresis) |
+| Still | for **1.0 s**. The count starts on the **first** sample that is down and still (under 0.35 rad/s and 0.06 g), with no lag; during it, **smoothed** rotation rate and acceleration (0.15 s time constant) break it only above 0.7 rad/s or 0.12 g, so one twitch doesn't restart it. (2026-10-14's version also smoothed the start, which hid a 0.3-0.5 s delay after the hand stopped, and used a 35° cone, which a leaning address could miss.) |
 | Armed | haptic + green flash; the address orientation `q0` is the **average attitude over the last 0.3 s** of the still window, not one sample: a steadier reference for the face and toe angles at impact (P1, D56) |
-| Re-address | armed, if the player settles again (still 0.6 s, under 1° of turn across 0.3 s) turned at least 4° from `q0` (a grip adjustment after the flash), `q0` is taken again with a light tick. A slow putting takeaway turns too much to count as still. The count goes in the swing header. |
+| Re-address | armed, if the player settles again (still 0.6 s, under 1° of turn across all of it) turned at least 4° from `q0` (a grip adjustment after the flash), `q0` is taken again with a light tick. A slow putting takeaway turns too much to count as still. The count goes in the swing header. |
 | Swing angle | SwingApp's angle: the phone's +y axis in the address frame, projected on the plane normal to address +x, `atan2(z, y)`, **unwrapped**, so a full swing past vertical doesn't wrap. That's why a plain dot-product test would fire at the top. |
 | Backswing | the side the angle first leaves by 8°; the top is the largest excursion on that side |
 | Impact | the angle crosses back through 0 after a backswing of at least the block's minimum (full 60°, ¾ 45°, chip 15°, putt 4°), with the rotation rate about the swing axis at least the block's minimum (full 3 rad/s, ¾ 2.5, chip 0.8, putt 0.25). The crossing time is interpolated between samples. |
