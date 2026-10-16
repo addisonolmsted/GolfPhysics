@@ -222,6 +222,41 @@ gravity). Gyro clipping on the hardest swings still needs the bridging above.
 gains); whether skilled players can produce a fade or a draw on purpose (an optional block for experienced
 players); the toe-up distribution (it sets `μ`, `d`, `g`); how often fast swings clip.
 
+### Speed index: rotation, plus the hands on touch shots (D60, *proposed*)
+
+**Full swings: rotation only.** The speed index is the gyro's rotation rate at impact about the swing axis, scaled by
+the club's length; the hands' share is a population factor folded into the speed curve. Measured on the first pilot
+session (2026-10-16): rotation alone, scaled by one factor, matches a hands-included estimate to 3.9 % RMS (worst 9 %)
+on 31 full swings and ranks 92 % of swing pairs the same way. Getting the hands on full swings means rebuilding the
+accelerometer's clipped samples (it clips at ±8 g on every full swing) and integrating, which costs ~0.1-0.15 s of
+waiting after impact, risks outlier shots, and carries phone-to-phone differences (accelerometer ranges vary by model):
+too much for a few percent of speed in a game. No accelerometer in the latency path for full swings.
+
+**Touch shots: rotation plus the hands, as a correction.** Putts and chips never clip (≤ 2.6 g measured), the hands
+are 39-46 % of their speed, and putt distance goes with speed squared, so it matters here. The hands' velocity is the
+linear acceleration integrated **from the top of the stroke** (a short stroke stops there) to impact, 0.3-0.5 s, all
+before impact: no waiting. (From address instead, over ~2 s, drift dominated: 8.5 % RMS against 3.3 % from the top.)
+
+```
+speed = k · rotation + w · (hands − ĥ(rotation))
+```
+
+- `ĥ(rotation)` is the population's expected hand speed for that rotation, calibrated once: at `w = 0` this is
+  rotation-only exactly; at `w = 1` the swing's own hand motion counts (a shoulder-rocking putter is credited for it).
+  No jump anywhere.
+- `w` comes from the **backswing length** (the swing angle at the top, the same fullness signal the speed curve uses,
+  D36), not the club or the shot type: 1 up to ~100°, fading to 0 by ~150°. A bump-and-run 9 iron or a half PW gets
+  the hands; a full PW doesn't. First pilot session: putts 18-61°, 10 yd chips 70-89° (never clipped); 25-40 yd
+  pitches 157-184° and every fuller swing (always clipped on the ±8 g phone). The edges are first guesses from one
+  golfer; the pilot sets them.
+- **Validity:** any accelerometer sample within ~2 % of that phone's range between the top and impact sets `w = 0`
+  for that swing (a hard punch).
+- Calibration: `k`, `ĥ` and the speed curve from the pilot's launch-monitor sessions (club speed for chips; roll
+  distance for putts).
+
+No change to the payload: the summary and the short impact window already carry what this needs if the phone computes
+the hand velocity from the top (three numbers), or the raw window can; decided with M5.
+
 ### Speed: one curve for everyone (D22, D23)
 
 There is no per-player calibration. The speed index goes through the **universal speed curve** in
