@@ -64,12 +64,14 @@ All angles are in the **address frame**: the phone's orientation at the moment i
 
 ### What a swing records
 
-Everything from 1 s before arming to 1 s after impact, at the phone's top rate (requested 200 Hz; iPhones usually
+Everything from 3 s before arming (1 s before 2026-10-15) to 1 s after impact, at the phone's top rate (requested 200 Hz; iPhones usually
 deliver 100 Hz):
 
 - **Device motion:** time, attitude quaternion, user acceleration (g), gravity (g), rotation rate (rad/s), all in
   the device frame, plus the world frame `xArbitraryZVertical`.
-- **Raw accelerometer:** time, x, y, z (g). Only this stream shows saturation.
+- **Raw accelerometer:** time, x, y, z (g). Only this stream shows its saturation.
+- **Raw gyroscope** (format 2, 2026-10-15): time, x, y, z (rad/s), before CoreMotion's fusion: the clearest view of
+  the gyro clipping on fast swings.
 - **Markers:** still-from, armed, backswing start, top, impact.
 - **Quality:**
   - measured rates for both streams;
@@ -82,16 +84,48 @@ deliver 100 Hz):
 ```
 "SLB1" | u32 header length | header JSON (versions, columns, rates, markers, quality, labels)
 | motion rows: f64 x 17 (t, qw, qx, qy, qz, ax, ay, az, gx, gy, gz, rx, ry, rz, swing_angle_deg, reserved x2)
-| raw rows: f64 x 4 (t, ax, ay, az)
+| raw accelerometer rows: f64 x 4 (t, ax, ay, az)
+| raw gyro rows: f64 x 4 (t, wx, wy, wz)                        (format 2 on; formatVersion in the header)
 ```
 
-The header gives both row counts, so a reader needs no other context. A 4 s swing is about 60 KB.
+The header gives every row count, so a reader needs no other context. A 6 s swing is about 100 KB.
+
+### The session stream (2026-10-15)
+
+So that no attempt loses its data, whatever the detector made of it, the **whole capture** is also recorded
+continuously, from opening the swing screen to leaving it, in `<session id>/stream/`:
+
+| File | What |
+|---|---|
+| `motion.bin` | fused motion, every sample: t, qw, qx, qy, qz, user acceleration (g), gravity (g), rotation rate (rad/s) |
+| `raw_accel.bin` | raw accelerometer: t, x, y, z (g) |
+| `raw_gyro.bin` | raw gyroscope: t, x, y, z (rad/s) |
+| `events.jsonl` | one JSON object per line, `{"t": …, "type": …, …}` |
+
+A `.bin` file is `"SLS1" | u32 header length | header JSON (stream, columns, device, app, clock) | rows of f64`,
+little-endian. Rows are written about once a second (a crash loses at most a second); a session that leaves and
+re-enters the swing screen appends. **Every time, in the stream, the events and the `.slab` files, is CoreMotion's
+timestamp** (seconds since the phone booted), so they line up exactly.
+
+Events: `capture_start`, `capture_stop`, `gap` (`from`, `to`: the app paused), `block_start` (block, kind, gates),
+`settle_start`, `settle_broken`, `armed`, `readdressed`, `backswing_start`, `wobble` (back to armed under the
+minimum backswing), `impact` (armed, backswing start, top, backswing, rotation rate, re-addresses), `swing_saved`
+(swing id, file, block, attempt, status, and `from`/`to`: the stretch of the stream its `.slab` covers), `disarmed`
+(reason, and for a started swing its backswing start, top and backswing), `unarmed_swing` (a burst of rotation over
+2.5x the block's swing threshold while not armed: maybe a swing the detector never saw; peak, start, end), and
+`swing_deleted`.
+
+Size: ~18 KB/s, ~16-22 MB for a 15-20 minute session, ~0.5 GB for 20 people across two phones. Home shows the space
+used.
 
 ### Getting the data off the phone (D41)
 
 **Export** builds one `.zip`:
 - `<session id>/session.json`: the session, the survey, and every swing's quality and markers;
-- `<session id>/swings/*.slab`: one file per swing, discarded swings included.
+- `<session id>/swings/*.slab`: one file per swing, discarded swings included;
+- `<session id>/stream/*`: the continuous recording and its events.
+
+The zip is written to disk entry by entry, so a large export never sits in memory whole.
 
 The share sheet sends it by AirDrop to the Mac, to Files or by Mail; exported sessions get a tick on Home. The app's
 folder is also visible in the Files app (On My iPhone › SwingLab) and in Finder when the phone is plugged in.
