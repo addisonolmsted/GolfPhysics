@@ -209,6 +209,15 @@ pilot so a casual player's spread gives believable misses; the target-aware assi
 drifts and the speed reads low. Clipped samples are detected and bridged from both sides; the speed curve treats a
 clipped swing as "at least this fast". The pilot shows how often it happens on which phones.
 
+**Measured in the first pilot session (2026-10-16, iPhone 12, one golfer):** the accelerometer (±8 g) clips for
+0.2-0.27 s around impact on **every** full swing, and on 25-40 yd pitches; the gyro peaks at 31 rad/s on normal full
+swings and touches its ±2,000°/s ceiling (34.8 rad/s) on the hardest. **The clipping corrupts CoreMotion's fused
+attitude:** for many seconds afterwards its gravity estimate is off by roughly 4-5° (a false 0.06-0.15 g of "user
+acceleration" on a phone held still). Face, loft and toe-up are angles of a few degrees, so `golf-swing` should not
+take CoreMotion's attitude at face value: integrate the raw gyro over the swing (address to impact is ~1-3 s, where
+gyro drift is tiny), anchored at address by the raw accelerometer's gravity (the phone is still there, so it is true
+gravity). Gyro clipping on the hardest swings still needs the bridging above.
+
 **What the pilot must answer:** the noise of face, path, loft and attack on swings meant to be straight (it sets the
 gains); whether skilled players can produce a fade or a draw on purpose (an optional block for experienced
 players); the toe-up distribution (it sets `μ`, `d`, `g`); how often fast swings clip.

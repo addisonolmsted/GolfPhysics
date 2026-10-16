@@ -54,7 +54,7 @@ All angles are in the **address frame**: the phone's orientation at the moment i
 | Step | Rule (v1 values, tunable) |
 |---|---|
 | Pointing down | from CoreMotion's gravity vector: the phone's +y within 45° of straight down to start settling, within 55° to stay (hysteresis) |
-| Still | for **1.0 s**. The count starts on the **first** sample that is down and still (under 0.35 rad/s and 0.06 g), with no lag; during it, **smoothed** rotation rate and acceleration (0.15 s time constant) break it only above 0.7 rad/s or 0.12 g, so one twitch doesn't restart it. (2026-10-14's version also smoothed the start, which hid a 0.3-0.5 s delay after the hand stopped, and used a 35° cone, which a leaning address could miss.) |
+| Still | for **1.0 s**. The count starts on the **first** sample that is down and still (under 0.35 rad/s, and the **total** measured acceleration within 0.06 g of 1 g), with no lag; during it, **smoothed** rotation rate and acceleration (0.15 s time constant) break it only above 0.7 rad/s or 0.12 g, so one twitch doesn't restart it. (2026-10-14's version also smoothed the start, which hid a 0.3-0.5 s delay after the hand stopped, and used a 35° cone, which a leaning address could miss.) **Why the total acceleration** (2026-10-16): the first pilot session showed that a swing clipping the accelerometer leaves CoreMotion's attitude a few degrees off for many seconds, so its gravity-removed "user acceleration" read 0.06-0.15 g on a phone held perfectly still (raw accelerometer: 0.007 g). 12 of 53 arms came after more than 1.5 s of real stillness, up to 4.3 s. The total, `|userAcc + gravity| − 1`, doesn't depend on the attitude estimate. |
 | Armed | haptic + green flash; the address orientation `q0` is the **average attitude over the last 0.3 s** of the still window, not one sample: a steadier reference for the face and toe angles at impact (P1, D56) |
 | Re-address | armed, if the player settles again (still 0.6 s, under 1° of turn across all of it) turned at least 4° from `q0` (a grip adjustment after the flash), `q0` is taken again with a light tick. A slow putting takeaway turns too much to count as still. The count goes in the swing header. |
 | Swing angle | SwingApp's angle: the phone's +y axis in the address frame, projected on the plane normal to address +x, `atan2(z, y)`, **unwrapped**, so a full swing past vertical doesn't wrap. That's why a plain dot-product test would fire at the top. |
@@ -112,7 +112,7 @@ Events: `capture_start`, `capture_stop`, `gap` (`from`, `to`: the app paused), `
 minimum backswing), `impact` (armed, backswing start, top, backswing, rotation rate, re-addresses), `swing_saved`
 (swing id, file, block, attempt, status, and `from`/`to`: the stretch of the stream its `.slab` covers), `disarmed`
 (reason, and for a started swing its backswing start, top and backswing), `unarmed_swing` (a burst of rotation over
-2.5x the block's swing threshold while not armed: maybe a swing the detector never saw; peak, start, end), and
+10 rad/s, or 2.5x the block's swing threshold, while not armed: handling the phone between swings reaches 2-6 rad/s: maybe a swing the detector never saw; peak, start, end), and
 `swing_deleted`.
 
 Size: ~18 KB/s, ~16-22 MB for a 15-20 minute session, ~0.5 GB for 20 people across two phones. Home shows the space
