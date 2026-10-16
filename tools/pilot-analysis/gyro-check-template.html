@@ -1,0 +1,228 @@
+<title>Gyro Orientation Check</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* One question per section: do the raw gyro and CoreMotion agree on slow swings, and which one is right on fast ones?
+   Raw gyro is blue, CoreMotion orange, everywhere. */
+:root {
+  --bg: #f1f4ef; --surface: #ffffff; --ink: #1b2822; --muted: #5d6b64; --line: #d3dbd5; --grid: #e6ece7;
+  --raw: #1d6bb0; --cm: #c45a17; --good: #2c7a4b; --chip: #f5f8f4; --hi: #f6efe0;
+  --display: "Barlow Condensed", "Arial Narrow", sans-serif; --body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #111814; --surface: #18211c; --ink: #e2eae4; --muted: #94a59b; --line: #2b3831; --grid: #1f2a24; --raw: #5eaaf0; --cm: #f08c4a; --good: #5cc18a; --chip: #1f2a24; --hi: #2a261c; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --bg: #111814; --surface: #18211c; --ink: #e2eae4; --muted: #94a59b; --line: #2b3831; --grid: #1f2a24; --raw: #5eaaf0; --cm: #f08c4a; --good: #5cc18a; --chip: #1f2a24; --hi: #2a261c; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.55 var(--body); }
+.wrap { max-width: 1120px; margin: 0 auto; padding-inline: 16px; padding-block: 24px 48px; display: grid; gap: 18px; }
+h1 { font: 700 2.3rem/1 var(--display); margin: 0; }
+h2 { font: 600 1.35rem/1.15 var(--display); margin: 0; letter-spacing: 0.02em; text-wrap: balance; }
+p { margin: 0; max-width: 78ch; }
+.lede { color: var(--muted); }
+.verdict { background: var(--hi); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; display: grid; gap: 6px; }
+.verdict b { font-weight: 600; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 820px) { .two { grid-template-columns: 1fr; } }
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font: 400 0.88rem/1.35 var(--mono); font-variant-numeric: tabular-nums; }
+th { font: 600 0.78rem/1.2 var(--display); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: bottom; }
+th:first-child, td:first-child { text-align: left; }
+td { padding: 6px 8px; border-bottom: 1px solid var(--grid); text-align: right; }
+td.raw { color: var(--raw); font-weight: 500; } td.cm { color: var(--cm); font-weight: 500; }
+svg { display: block; width: 100%; height: auto; max-width: 100%; }
+svg text { font-family: var(--mono); font-size: 11px; fill: var(--muted); }
+.keys { display: flex; flex-wrap: wrap; gap: 14px; font: 400 0.8rem/1.3 var(--mono); color: var(--muted); }
+.keys span { display: inline-flex; align-items: center; gap: 6px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.cap { font: 500 0.75rem/1.3 var(--mono); color: var(--muted); letter-spacing: 0.05em; text-transform: uppercase; }
+select { font: 500 0.92rem/1 var(--body); color: var(--ink); background: var(--chip); border: 1px solid var(--line); border-radius: 4px; padding: 7px 8px; max-width: 100%; }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.facts { font: 400 0.85rem/1.5 var(--mono); color: var(--muted); }
+ul { margin: 0; padding-left: 1.2em; max-width: 78ch; } li { margin: 2px 0; }
+</style>
+
+<div class="wrap">
+  <header style="display:grid;gap:8px">
+    <h1>Gyro Orientation Check</h1>
+    <p class="lede" id="lede"></p>
+  </header>
+
+  <section class="verdict" id="verdict"></section>
+
+  <section class="panel">
+    <h2>By kind of swing</h2>
+    <p class="lede">Medians over the swings in each group. "Error against gravity" is measured when the phone is next held still after the swing, where the raw accelerometer shows the true direction of down: an independent check of both methods' tilt.</p>
+    <div class="table-wrap"><table id="summary"></table></div>
+  </section>
+
+  <section class="two">
+    <div class="panel">
+      <h2>Which is right after a fast swing?</h2>
+      <p class="lede">Tilt error against gravity, by how fast the swing was. CoreMotion's error grows with speed; the raw gyro's doesn't.</p>
+      <svg id="truth" viewBox="0 0 520 340" role="img" aria-label="Tilt error against gravity by swing speed"></svg>
+      <div class="keys"><span><i class="dot" style="background:var(--raw)"></i>raw gyro</span><span><i class="dot" style="background:var(--cm)"></i>CoreMotion</span></div>
+    </div>
+    <div class="panel">
+      <h2>Do they agree at impact?</h2>
+      <p class="lede">The angle between the two orientations at the moment of impact, both starting from the same address. Close on slow swings; apart on fast ones.</p>
+      <svg id="agree" viewBox="0 0 520 340" role="img" aria-label="Difference at impact by swing speed"></svg>
+      <div class="keys" id="blockkeys"></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>The face twist agrees either way</h2>
+    <p class="lede">The phone's rotation about its long axis between address and impact: the face opening or closing. CoreMotion's error is mostly tilt, so this angle comes out within a few degrees on both. Fades and draws separate clearly.</p>
+    <svg id="twist" viewBox="0 0 1000 380" role="img" aria-label="Face twist at impact: CoreMotion against raw gyro"></svg>
+  </section>
+
+  <section class="panel">
+    <h2>One swing, through time</h2>
+    <div class="row"><select id="pick" aria-label="Swing"></select><span class="facts" id="facts"></span></div>
+    <div class="cap">Rotation rate (raw gyro); the dashed line is the gyro's ±2,000°/s limit</div>
+    <svg id="s-rate" viewBox="0 0 1000 170" role="img" aria-label="Rotation rate through the swing"></svg>
+    <div class="cap">Angle between the raw-gyro and CoreMotion orientations</div>
+    <svg id="s-diff" viewBox="0 0 1000 170" role="img" aria-label="Angle between the two orientations through the swing"></svg>
+    <div class="cap">Face twist from address: raw gyro (blue) and CoreMotion (orange)</div>
+    <svg id="s-twist" viewBox="0 0 1000 190" role="img" aria-label="Face twist through the swing"></svg>
+  </section>
+
+  <section class="panel">
+    <h2>How this was measured</h2>
+    <ul id="method"></ul>
+  </section>
+</div>
+
+<script>
+const DATA = /*__DATA__*/null;
+const NS = "http://www.w3.org/2000/svg";
+const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const el = (tag, attrs = {}, kids = []) => {
+  const e = tag.startsWith("svg:") ? document.createElementNS(NS, tag.slice(4)) : document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) { if (v === null || v === undefined) continue; if (k === "text") e.textContent = v; else e.setAttribute(k, v); }
+  for (const k of kids) if (k) e.append(k);
+  return e;
+};
+const med = (a) => { const s = a.filter(x => x !== null && x !== undefined).sort((x, y) => x - y); return s.length ? s[Math.floor((s.length - 1) / 2)] * 0.5 + s[Math.ceil((s.length - 1) / 2)] * 0.5 : null; };
+const f1 = (v) => v === null ? "–" : v.toFixed(1);
+const GROUPS = [
+  ["Putts", (b) => b.startsWith("putt")],
+  ["Short chips (10 yd)", (b) => b === "chip10"],
+  ["Pitches (25-40 yd)", (b) => b === "chip25" || b === "chip40"],
+  ["Full, three-quarter, fade, draw", (b) => ["practice", "full", "three_quarter", "fade", "draw"].includes(b)],
+  ["Hard", (b) => b === "hard"],
+];
+const blockColor = (b) => ({ putt: "#7a8f84", chip: "#9a7bc0", full: css("--ink"), hard: "#b3261e", fade: "#2c7a4b", draw: "#1d6bb0" })[b.startsWith("putt") ? "putt" : b.startsWith("chip") ? "chip" : ["practice", "three_quarter", "full"].includes(b) ? "full" : b];
+const S = DATA.swings;
+
+function niceStep(range, ticks) { const raw = range / ticks, p = Math.pow(10, Math.floor(Math.log10(raw))); return [1, 2, 2.5, 5, 10].map(m => m * p).find(s => s >= raw) || 10 * p; }
+function axes(svg, W, H, L, B, xmin, xmax, ymin, ymax, xl, yl) {
+  const T = 12, R = 12;
+  const sx = (x) => L + (x - xmin) / (xmax - xmin) * (W - L - R), sy = (y) => T + (1 - (y - ymin) / (ymax - ymin)) * (H - T - B);
+  const xs = niceStep(xmax - xmin, 6), ys = niceStep(ymax - ymin, 5);
+  for (let x = Math.ceil(xmin / xs) * xs; x <= xmax + 1e-9; x += xs) { svg.append(el("svg:line", { x1: sx(x), x2: sx(x), y1: T, y2: H - B, stroke: css("--grid") })); svg.append(el("svg:text", { x: sx(x), y: H - B + 15, "text-anchor": "middle", text: +x.toFixed(2) })); }
+  for (let y = Math.ceil(ymin / ys) * ys; y <= ymax + 1e-9; y += ys) { svg.append(el("svg:line", { x1: L, x2: W - R, y1: sy(y), y2: sy(y), stroke: Math.abs(y) < 1e-9 ? css("--muted") : css("--grid") })); svg.append(el("svg:text", { x: L - 6, y: sy(y) + 4, "text-anchor": "end", text: +y.toFixed(2) })); }
+  svg.append(el("svg:text", { x: W - R, y: H - 3, "text-anchor": "end", text: xl }));
+  svg.append(el("svg:text", { x: L, y: T - 2, text: yl }));
+  return { sx, sy };
+}
+
+function header() {
+  const fast = S.filter(s => s.peak > 15 && s.truth_cm != null), slow = S.filter(s => s.peak < 7 && s.truth_cm != null);
+  document.getElementById("lede").textContent = `Can we trust our own orientation from the raw gyroscope, instead of CoreMotion's, at the few-degree precision face, loft and toe-up need? ${S.length} swings from one session (${DATA.session}, ${DATA.device}): putts, chips, full, hard, fade and draw swings.`;
+  const v = document.getElementById("verdict");
+  v.append(el("p", {}, [el("b", { text: "Slow swings: they agree. " }), document.createTextNode(`On putts and short chips the two orientations are within ${f1(med(slow.map(s => s.impact_diff)))}° at impact (median), and both match gravity afterwards to about ${f1(med(slow.map(s => s.truth_raw)))}° (raw) and ${f1(med(slow.map(s => s.truth_cm)))}° (CoreMotion).`)]));
+  v.append(el("p", {}, [el("b", { text: "Fast swings: the raw gyro stays right, CoreMotion doesn't. " }), document.createTextNode(`On swings over 15 rad/s they are ${f1(med(fast.map(s => s.impact_diff)))}° apart at impact. Against gravity afterwards the raw gyro is off by ${f1(med(fast.map(s => s.truth_raw)))}° (median, worst ${f1(Math.max(...fast.map(s => s.truth_raw)))}°); CoreMotion by ${f1(med(fast.map(s => s.truth_cm)))}° (worst ${f1(Math.max(...fast.map(s => s.truth_cm)))}°, on the hard swings). Every full swing clips the ±8 g accelerometer, and CoreMotion's fusion trusts it.`)]));
+  v.append(el("p", {}, [el("b", { text: "The face twist is fine with either. " }), document.createTextNode("CoreMotion's error is in tilt (which way is down), so it would hurt loft and toe-up most. The plan in the swing-input contract holds: integrate the raw gyro over the swing, anchored at address by the raw accelerometer's gravity.")]));
+}
+
+function summary() {
+  const t = document.getElementById("summary");
+  t.append(el("thead", {}, [el("tr", {}, ["Group", "Swings", "Peak speed (rad/s)", "Raw vs CoreMotion at impact (°)", "Error against gravity: raw gyro (°)", "Error against gravity: CoreMotion (°)", "Face twist: raw vs CoreMotion (°)"].map(h => el("th", { text: h })))]));
+  const tb = el("tbody");
+  for (const [name, test] of GROUPS) {
+    const g = S.filter(s => test(s.block));
+    tb.append(el("tr", {}, [el("td", { text: name }), el("td", { text: g.length }), el("td", { text: f1(med(g.map(s => s.peak))) }), el("td", { text: f1(med(g.map(s => s.impact_diff))) }),
+      el("td", { class: "raw", text: f1(med(g.map(s => s.truth_raw))) }), el("td", { class: "cm", text: f1(med(g.map(s => s.truth_cm))) }), el("td", { text: f1(med(g.map(s => Math.abs(s.twist_raw - s.twist_cm)))) })]));
+  }
+  t.append(tb);
+}
+
+function scatterTruth() {
+  const svg = document.getElementById("truth"), pts = S.filter(s => s.truth_cm != null);
+  const ymax = Math.ceil(Math.max(...pts.map(s => Math.max(s.truth_cm, s.truth_raw))) / 5) * 5;
+  const { sx, sy } = axes(svg, 520, 340, 40, 30, 0, 36, 0, ymax, "peak swing speed (rad/s)", "tilt error against gravity (°)");
+  for (const s of pts) {
+    svg.append(el("svg:line", { x1: sx(s.peak), x2: sx(s.peak), y1: sy(s.truth_raw), y2: sy(s.truth_cm), stroke: css("--line") }));
+    svg.append(el("svg:circle", { cx: sx(s.peak), cy: sy(s.truth_cm), r: 4.2, fill: css("--cm") }, [el("svg:title", { text: `${s.block} #${s.n}: CoreMotion ${s.truth_cm}°` })]));
+    svg.append(el("svg:circle", { cx: sx(s.peak), cy: sy(s.truth_raw), r: 4.2, fill: css("--raw") }, [el("svg:title", { text: `${s.block} #${s.n}: raw gyro ${s.truth_raw}°` })]));
+  }
+}
+
+function scatterAgree() {
+  const svg = document.getElementById("agree");
+  const ymax = Math.ceil(Math.max(...S.map(s => s.impact_diff)) / 5) * 5;
+  const { sx, sy } = axes(svg, 520, 340, 40, 30, 0, 36, 0, ymax, "peak swing speed (rad/s)", "raw vs CoreMotion at impact (°)");
+  for (const s of S) svg.append(el("svg:circle", { cx: sx(s.peak), cy: sy(s.impact_diff), r: 4.2, fill: blockColor(s.block), "fill-opacity": 0.85 }, [el("svg:title", { text: `${s.block} #${s.n}: ${s.impact_diff}°` })]));
+  const k = document.getElementById("blockkeys");
+  for (const [n, b] of [["putts", "putt1"], ["chips", "chip10"], ["full, ¾", "full"], ["hard", "hard"], ["fade", "fade"], ["draw", "draw"]]) k.append(el("span", {}, [el("i", { class: "dot", style: `background:${blockColor(b)}` }), document.createTextNode(n)]));
+}
+
+function scatterTwist() {
+  const svg = document.getElementById("twist");
+  const lim = Math.ceil(Math.max(...S.map(s => Math.max(Math.abs(s.twist_cm), Math.abs(s.twist_raw)))) / 10) * 10;
+  const { sx, sy } = axes(svg, 1000, 380, 44, 30, -lim, lim, -lim, lim, "face twist, CoreMotion (°)", "face twist, raw gyro (°)");
+  svg.append(el("svg:line", { x1: sx(-lim), y1: sy(-lim), x2: sx(lim), y2: sy(lim), stroke: css("--muted"), "stroke-dasharray": "4 4" }));
+  for (const s of S) svg.append(el("svg:circle", { cx: sx(s.twist_cm), cy: sy(s.twist_raw), r: 5, fill: blockColor(s.block), "fill-opacity": 0.85 }, [el("svg:title", { text: `${s.block} #${s.n}: CoreMotion ${s.twist_cm}°, raw ${s.twist_raw}°` })]));
+  const fade = S.filter(s => s.block === "fade"), draw = S.filter(s => s.block === "draw");
+  const lab = (g, name) => { const x = med(g.map(s => s.twist_cm)), y = med(g.map(s => s.twist_raw)); svg.append(el("svg:text", { x: sx(x) + 10, y: sy(y) - 10, text: name, style: `fill:${blockColor(g[0].block)};font-weight:600` })); };
+  lab(fade, "fades"); lab(draw, "draws");
+}
+
+function line(svg, sx, sy, pts, color, w = 2) { svg.append(el("svg:path", { d: pts.map((p, i) => `${i ? "L" : "M"} ${sx(p[0]).toFixed(1)} ${sy(p[1]).toFixed(1)}`).join(" "), fill: "none", stroke: color, "stroke-width": w })); }
+function explorer(i) {
+  const s = S[i], tr = s.trace, t0 = tr[0][0], t1 = tr[tr.length - 1][0];
+  document.getElementById("facts").textContent = `peak ${s.peak} rad/s · backswing ${s.backswing}° · accel clipped ${s.acc_clip} samples, gyro ${s.gyro_clip} · CoreMotion off at address ${s.addr_err}° · against gravity afterwards: raw ${s.truth_raw ?? "–"}°, CoreMotion ${s.truth_cm ?? "–"}°`;
+  const mk = (id, H, ymin, ymax, yl, draw) => {
+    const svg = document.getElementById(id); svg.replaceChildren();
+    const a = axes(svg, 1000, H, 44, 26, t0, t1, ymin, ymax, "seconds from impact", yl);
+    svg.append(el("svg:line", { x1: a.sx(0), x2: a.sx(0), y1: 12, y2: H - 26, stroke: css("--muted"), "stroke-dasharray": "3 3" }));
+    svg.append(el("svg:text", { x: a.sx(0) + 4, y: 24, text: "impact" }));
+    draw(svg, a);
+  };
+  const wmax = Math.max(36, ...tr.map(p => p[2]));
+  mk("s-rate", 170, 0, wmax, "rad/s", (svg, a) => { svg.append(el("svg:line", { x1: 44, x2: 988, y1: a.sy(34.9), y2: a.sy(34.9), stroke: css("--cm"), "stroke-dasharray": "5 4" })); line(svg, a.sx, a.sy, tr.map(p => [p[0], p[2]]), css("--ink")); });
+  const dmax = Math.max(5, ...tr.map(p => p[1])) * 1.1;
+  mk("s-diff", 170, 0, dmax, "degrees", (svg, a) => line(svg, a.sx, a.sy, tr.map(p => [p[0], p[1]]), css("--muted")));
+  const tmin = Math.min(-5, ...tr.map(p => Math.min(p[3], p[4]))) * 1.1, tmax = Math.max(5, ...tr.map(p => Math.max(p[3], p[4]))) * 1.1;
+  mk("s-twist", 190, tmin, tmax, "degrees", (svg, a) => { line(svg, a.sx, a.sy, tr.map(p => [p[0], p[3]]), css("--cm")); line(svg, a.sx, a.sy, tr.map(p => [p[0], p[4]]), css("--raw")); });
+}
+
+function method() {
+  const m = document.getElementById("method");
+  for (const t of [
+    "Raw gyro: the phone's raw gyroscope (before CoreMotion's fusion), integrated sample by sample from the address orientation, with its constant offset removed. The offset is the median of raw minus CoreMotion's corrected rate over quiet samples in the 2 s before arming; it held at about (0.008, −0.005, −0.003) rad/s all session.",
+    "CoreMotion: the fused attitude the app records (gyro plus accelerometer, with its own corrections).",
+    "Agreement at impact: both start from the same address orientation (CoreMotion's, averaged over the last 0.3 s of the hold, as the detector does), so the angle between them at impact is how far they have diverged.",
+    "Truth: the first moment after the swing the phone is held still (raw gyro under 0.08 rad/s, raw accelerometer within 0.02 g of 1 g, for 0.25 s), usually 2-10 s later. There the raw accelerometer gives true down. The raw gyro starts from an address tilted to match the raw accelerometer's down (CoreMotion's address was itself off by up to 6° after the previous swing). This checks tilt only: heading has no independent reference.",
+    "The truth point comes after the swing and the walk back, so the raw gyro's 1-5° includes several seconds of integration beyond impact; at impact itself it should be smaller.",
+    "Face twist: the rotation about the phone's long axis between address and impact. Its sign isn't yet tied to open or closed.",
+    "Limits: one golfer, one phone (iPhone 12, ±8 g accelerometer, ±2,000°/s gyro). One hard swing touched the gyro's limit; bridging clipped gyro samples is still to do.",
+  ]) m.append(el("li", { text: t }));
+}
+
+header(); summary(); scatterTruth(); scatterAgree(); scatterTwist(); method();
+const pick = document.getElementById("pick");
+S.forEach((s, i) => pick.append(el("option", { value: i, text: `#${s.n} ${s.block} · ${s.peak} rad/s` })));
+const startAt = S.findIndex(s => s.block === "hard" && s.truth_cm > 20);
+pick.value = startAt >= 0 ? startAt : 0;
+pick.addEventListener("change", () => explorer(Number(pick.value)));
+explorer(Number(pick.value));
+const redraw = () => { for (const id of ["truth", "agree", "twist"]) document.getElementById(id).replaceChildren(); document.getElementById("blockkeys").replaceChildren(); scatterTruth(); scatterAgree(); scatterTwist(); explorer(Number(pick.value)); };
+try { window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", redraw); } catch (e) {}
+new MutationObserver(redraw).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+</script>
