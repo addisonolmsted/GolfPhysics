@@ -92,6 +92,31 @@ ul { margin: 0; padding-left: 1.2em; max-width: 78ch; } li { margin: 2px 0; }
   </section>
 
   <section class="panel">
+    <h2>Rebuilding clipped acceleration</h2>
+    <p class="lede" id="rep-lede"></p>
+    <svg id="rep" viewBox="0 0 1000 300" role="img" aria-label="A clipped stretch rebuilt"></svg>
+    <div class="keys"><span><i class="dot" style="background:var(--ink)"></i>measured</span><span><i class="dot" style="background:var(--raw)"></i>rigid-body rebuild</span><span><i class="dot" style="background:var(--cm)"></i>straight line</span><span><i class="dot" style="background:var(--hi);border:1px solid var(--line)"></i>samples treated as missing</span></div>
+    <div class="table-wrap"><table id="rep-table"></table></div>
+  </section>
+
+  <section class="panel">
+    <h2>How much speed the hands add</h2>
+    <p class="lede">The virtual clubhead's speed at impact is the hands' velocity plus the club turning with the phone (a club along the phone's long axis, 0.95 m for full swings). The hands come from integrating the acceleration from the still address to impact, with the raw-gyro orientation and clipped samples rebuilt. "Lost" is how much of the head speed a rotation-only estimate misses.</p>
+    <div class="table-wrap"><table id="hands"></table></div>
+    <p class="lede" id="hands-note"></p>
+  </section>
+
+  <section class="panel">
+    <h2>When the gyro clips</h2>
+    <div id="bridge"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Gyro ranges: what we know</h2>
+    <ul id="ranges"></ul>
+  </section>
+
+  <section class="panel">
     <h2>How this was measured</h2>
     <ul id="method"></ul>
   </section>
@@ -99,6 +124,7 @@ ul { margin: 0; padding-left: 1.2em; max-width: 78ch; } li { margin: 2px 0; }
 
 <script>
 const DATA = /*__DATA__*/null;
+const SPEED = /*__SPEED__*/null;
 const NS = "http://www.w3.org/2000/svg";
 const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const el = (tag, attrs = {}, kids = []) => {
@@ -183,7 +209,12 @@ function scatterTwist() {
   lab(fade, "fades"); lab(draw, "draws");
 }
 
-function line(svg, sx, sy, pts, color, w = 2) { svg.append(el("svg:path", { d: pts.map((p, i) => `${i ? "L" : "M"} ${sx(p[0]).toFixed(1)} ${sy(p[1]).toFixed(1)}`).join(" "), fill: "none", stroke: color, "stroke-width": w })); }
+function line(svg, sx, sy, pts, color, w = 2) {
+  // a null y breaks the line (a gap in the data), it never draws as zero
+  let d = "", pen = false;
+  for (const p of pts) { if (p[1] === null || p[1] === undefined) { pen = false; continue; } d += `${pen ? "L" : "M"} ${sx(p[0]).toFixed(1)} ${sy(p[1]).toFixed(1)} `; pen = true; }
+  svg.append(el("svg:path", { d, fill: "none", stroke: color, "stroke-width": w }));
+}
 function explorer(i) {
   const s = S[i], tr = s.trace, t0 = tr[0][0], t1 = tr[tr.length - 1][0];
   document.getElementById("facts").textContent = `peak ${s.peak} rad/s · backswing ${s.backswing}° · accel clipped ${s.acc_clip} samples, gyro ${s.gyro_clip} · CoreMotion off at address ${s.addr_err}° · against gravity afterwards: raw ${s.truth_raw ?? "–"}°, CoreMotion ${s.truth_cm ?? "–"}°`;
@@ -215,7 +246,45 @@ function method() {
   ]) m.append(el("li", { text: t }));
 }
 
-header(); summary(); scatterTruth(); scatterAgree(); scatterTwist(); method();
+function speedSections() {
+  const R = SPEED.repair, ex = R.example;
+  document.getElementById("rep-lede").textContent = `The phone clips at ±8 g, so to test a repair we clip the recording again at 6 g and rebuild what it actually measured between 6 and 7.8 g (${R.n} samples in ${R.swings} full swings). The rebuild fits a rigid-body model (the phone turning about a pivot, with the gyro's rate and its change) to the good samples just around each gap, then interpolates only the small leftover across it. Example: a ${ex.block} swing, the phone's ${ex.axis} axis.`;
+  const svg = document.getElementById("rep"); svg.replaceChildren();
+  const all = [...ex.measured, ...ex.model, ...ex.line];
+  const lo = Math.floor(Math.min(...all)), hi = Math.ceil(Math.max(...all));
+  const a = axes(svg, 1000, 300, 44, 26, ex.t[0], ex.t[ex.t.length - 1], lo, hi, "seconds from impact", "acceleration (g)");
+  ex.t.forEach((t, i) => { if (ex.missing[i]) svg.append(el("svg:rect", { x: a.sx(t) - 4, y: 12, width: 8, height: 300 - 38, fill: css("--hi") })); });
+  for (const y of [6, -6, 7.8, -7.8]) if (y > lo && y < hi) svg.append(el("svg:line", { x1: 44, x2: 988, y1: a.sy(y), y2: a.sy(y), stroke: css("--line"), "stroke-dasharray": "4 4" }));
+  const ln = (vals, color, w) => line(svg, a.sx, a.sy, ex.t.map((t, i) => [t, vals[i]]), color, w);
+  ln(ex.line, css("--cm"), 2); ln(ex.model, css("--raw"), 2.4); ln(ex.measured.map((v, i) => ex.true_clip[i] ? null : v), css("--ink"), 1.6);
+  const tb = document.getElementById("rep-table");
+  tb.append(el("thead", {}, [el("tr", {}, ["Method", "Error per sample, median (g)", "90th percentile (g)", "Peak height error, median (g)"].map(h => el("th", { text: h })))]));
+  tb.append(el("tbody", {}, [
+    el("tr", {}, [el("td", { text: "Rigid-body rebuild" }), el("td", { class: "raw", text: R.model_med }), el("td", { class: "raw", text: R.model_p90 }), el("td", { class: "raw", text: R.peak_err_model })]),
+    el("tr", {}, [el("td", { text: "Straight line across the gap" }), el("td", { class: "cm", text: R.line_med }), el("td", { class: "cm", text: R.line_p90 }), el("td", { class: "cm", text: R.peak_err_line })])]));
+  const h = document.getElementById("hands");
+  h.append(el("thead", {}, [el("tr", {}, ["Block", "Swings", "Hands (m/s)", "Club rotation (m/s)", "Head (m/s)", "Lost without the hands", "Range"].map(x => el("th", { text: x })))]));
+  const order = ["practice", "full", "hard", "three_quarter", "fade", "draw", "chip40", "chip25", "chip10", "putt10", "putt4", "putt1"];
+  const hb = el("tbody");
+  for (const b of order) { const r = SPEED.hands.find(x => x.block === b); if (!r) continue;
+    hb.append(el("tr", {}, [el("td", { text: b.replace("_", " ") }), el("td", { text: r.n }), el("td", { text: r.hands }), el("td", { text: r.rotation }), el("td", { text: `${r.head} (${(r.head / 0.44704).toFixed(0)} mph)` }), el("td", { text: `${r.lost}%` }), el("td", { text: `${r.lost_min}-${r.lost_max}%` })])); }
+  h.append(hb);
+  document.getElementById("hands-note").textContent = "Rotation alone misses about 28-32% of full swings' head speed, and the share varies by about ±5% from swing to swing. A constant share could be absorbed by the speed curve; the swing-to-swing part is about 5% of head speed (roughly 10 yards on a drive), so the hands are worth including. The integration runs 2-3 s from address, so a few degrees of orientation error could leak about 1 m/s of gravity into the hands: treat the hand figures as good to roughly ±1 m/s until a launch-monitor session checks them.";
+  const B = SPEED.bridge, br = document.getElementById("bridge");
+  for (const t of [
+    `Test: clip the raw gyro artificially at 28 rad/s, which on full swings clips 4-5 samples at the peak, then rebuild. From the other two axes and the swing's steady rotation axis: median error ${B.axis_med} rad/s, 90th percentile ${B.axis_p90} rad/s. A cubic curve per axis: median ${B.cubic_med} rad/s, 90th percentile ${B.cubic_p90} rad/s. Both are good on short gaps and loose on long ones, so neither recovers a long clipped peak reliably.`,
+    "On this phone the real limit (about 34.9 rad/s) was reached on one sample of one hard swing. A gap that short bridges well.",
+    "The handling: (1) flag every swing whose gyro touches its limit; (2) bridge short gaps (a few samples) with the cubic, which never goes below the clip level; (3) give the speed curve the result as 'at least this fast'. A swing that clips the gyro is already far up the speed curve's taper, where more input speed adds little distance, so the bridge's error costs little in yards.",
+  ]) br.append(el("p", { text: t }));
+  const rg = document.getElementById("ranges");
+  for (const t of [
+    "Measured here: this iPhone 12's raw gyro peaked at 34.66 rad/s (1,986°/s) on one axis, just under 2,000°/s, consistent with the ±2,000°/s full scale common in phone motion sensors.",
+    "Not published: Apple doesn't state its gyro or accelerometer ranges, and CoreMotion doesn't report them. Apple says iPhone 14 and later have a 'high dynamic range gyroscope' (for crash detection), so newer phones may have a wider range.",
+    "So we measure rather than assume: every session records each phone's raw sensors; the level a stream flattens at is its range. The analysis keeps a table by phone model and treats samples near that model's limit as missing.",
+  ]) rg.append(el("li", { text: t }));
+}
+
+header(); summary(); speedSections(); scatterTruth(); scatterAgree(); scatterTwist(); method();
 const pick = document.getElementById("pick");
 S.forEach((s, i) => pick.append(el("option", { value: i, text: `#${s.n} ${s.block} · ${s.peak} rad/s` })));
 const startAt = S.findIndex(s => s.block === "hard" && s.truth_cm > 20);

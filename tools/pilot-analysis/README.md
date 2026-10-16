@@ -12,3 +12,4 @@ holds `<session id>/`). They become `golf-lab` tools once the pilot format settl
 | `replay.py <dir>` | the old and new stillness rules replayed over the stream |
 | `twist.py <dir>` | the phone's twist about its long axis at impact, per block (fade against draw) |
 | `gyro.py <dir> <out.json>` | raw-gyro orientation against CoreMotion's per swing, and both against gravity at the next stillness; the data for `gyro-check-template.html` (replace `/*__DATA__*/null` with the JSON) |
+| `speed.py` + `speed2.py speed.py <dir> [out.json]` | clipped-acceleration repair (tested by clipping again at 6 g), hand speed by integration, gyro-clip bridging (tested at 28 rad/s); the data for the clipping sections of `gyro-check-template.html` (`/*__SPEED__*/null`) |
