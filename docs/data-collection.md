@@ -112,8 +112,11 @@ Events: `capture_start`, `capture_stop`, `gap` (`from`, `to`: the app paused), `
 minimum backswing), `impact` (armed, backswing start, top, backswing, rotation rate, re-addresses), `swing_saved`
 (swing id, file, block, attempt, status, and `from`/`to`: the stretch of the stream its `.slab` covers), `disarmed`
 (reason, and for a started swing its backswing start, top and backswing), `unarmed_swing` (a burst of rotation over
-10 rad/s, or 2.5x the block's swing threshold, while not armed: handling the phone between swings reaches 2-6 rad/s: maybe a swing the detector never saw; peak, start, end), and
-`swing_deleted`.
+10 rad/s, or 2.5x the block's swing threshold, while not armed: handling the phone between swings reaches 2-6 rad/s: maybe a swing the detector never saw; peak, start, end), `swing_deleted`. Since 2026-10-26 the detector's input is a setting (Home → Detector debug): CoreMotion's fused
+attitude, or **raw sensors** (`RawFusion`: the raw gyro integrated with its offset tracked against CoreMotion's rate, the
+tilt pulled toward the raw accelerometer only while truly still, so a clipped swing can't bend it). The other input runs
+alongside as a shadow, logging `shadow_armed`, `shadow_impact`, `shadow_disarmed` and `shadow_readdressed` (with its
+`source`), so every session compares the two. The stream header and each swing header record the source.
 
 Size: ~18 KB/s, ~16-22 MB for a 15-20 minute session, ~0.5 GB for 20 people across two phones. Home shows the space
 used.
